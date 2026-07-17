@@ -1,0 +1,40 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 35e057a332b76ef449489fa53ae1259b, type: 3}
+  m_Name: Clarity
+  m_EditorClassIdentifier: Assembly-CSharp::CardData
+  m_cardId: id_clarity
+  m_artwork: {fileID: 21300000, guid: 33776a59a087f1c44873190b67eb2853, type: 3}
+  m_cardFrame: {fileID: 21300000, guid: 04fe8fe064f44194f84e6c312414a7ff, type: 3}
+  m_cardBack: {fileID: 21300000, guid: d003d942c3697bc48b05331eea127970, type: 3}
+  m_nameKey: cardName_clarity
+  m_descKey: cardDesc_clarity
+  m_cost: 3
+  m_rarity: 0
+  m_specialSpecialization: 2
+  m_activities:
+  - s_actionType: 3
+    s_targetType: 21
+    s_effect: 0
+    s_value: 2
+  - s_actionType: 0
+    s_targetType: 0
+    s_effect: 0
+    s_value: 0
+  - s_actionType: 0
+    s_targetType: 0
+    s_effect: 0
+    s_value: 0
+  - s_actionType: 0
+    s_targetType: 0
+    s_effect: 0
+    s_value: 0

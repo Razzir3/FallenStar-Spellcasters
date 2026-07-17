@@ -1,0 +1,212 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5b11a58205ec3474ca216360e9fa74a8, type: 3}
+  m_Name: UI_table Shared Data
+  m_EditorClassIdentifier: Unity.Localization::UnityEngine.Localization.Tables.SharedTableData
+  m_TableCollectionName: UI_table
+  m_TableCollectionNameGuidString: 5f329d5350a5fd44e86607395a0dd117
+  m_Entries:
+  - m_Id: 32564379648
+    m_Key: btn_confirm
+    m_Metadata:
+      m_Items: []
+  - m_Id: 183777427456
+    m_Key: btn_send
+    m_Metadata:
+      m_Items: []
+  - m_Id: 352489111552
+    m_Key: btn_endTurn
+    m_Metadata:
+      m_Items: []
+  - m_Id: 569527566336
+    m_Key: btn_createLobby
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1302075342848
+    m_Key: btn_disconnect
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1372002779136
+    m_Key: btn_spawnPlayers
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2018596683776
+    m_Key: btn_findLobby
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4662111305728
+    m_Key: label_hp
+    m_Metadata:
+      m_Items: []
+  - m_Id: 5044812185600
+    m_Key: label_life
+    m_Metadata:
+      m_Items: []
+  - m_Id: 5126601113600
+    m_Key: player_dead
+    m_Metadata:
+      m_Items: []
+  - m_Id: 6350024472330240
+    m_Key: btn_loginAnon
+    m_Metadata:
+      m_Items: []
+  - m_Id: 6350533446926336
+    m_Key: btn_loginSteam
+    m_Metadata:
+      m_Items: []
+  - m_Id: 6350776586534912
+    m_Key: btn_exit
+    m_Metadata:
+      m_Items: []
+  - m_Id: 6361800182136832
+    m_Key: btn_lobby
+    m_Metadata:
+      m_Items: []
+  - m_Id: 6370484710866944
+    m_Key: role_host
+    m_Metadata:
+      m_Items: []
+  - m_Id: 6370633684156416
+    m_Key: role_client
+    m_Metadata:
+      m_Items: []
+  - m_Id: 6377476322033664
+    m_Key: btn_gameStart
+    m_Metadata:
+      m_Items: []
+  - m_Id: 6389747668549632
+    m_Key: lobby_no_selected
+    m_Metadata:
+      m_Items: []
+  - m_Id: 6389910487236608
+    m_Key: lobby_players_count
+    m_Metadata:
+      m_Items: []
+  - m_Id: 6412872967847936
+    m_Key: lobby_status_not_connected
+    m_Metadata:
+      m_Items: []
+  - m_Id: 6412964399480832
+    m_Key: lobby_status_ready
+    m_Metadata:
+      m_Items: []
+  - m_Id: 6413034494689280
+    m_Key: lobby_status_waiting
+    m_Metadata:
+      m_Items: []
+  - m_Id: 6436276898955264
+    m_Key: "btn_lobbyRefresh\t"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 6436501550071808
+    m_Key: btn_back
+    m_Metadata:
+      m_Items: []
+  - m_Id: 6438406514868224
+    m_Key: lobby_list_not_found
+    m_Metadata:
+      m_Items: []
+  - m_Id: 6438471144898560
+    m_Key: lobby_list_found_count
+    m_Metadata:
+      m_Items: []
+  - m_Id: 6438624362823680
+    m_Key: lobby_list_selected
+    m_Metadata:
+      m_Items: []
+  - m_Id: 8236593956286464
+    m_Key: btn_confirmTurn
+    m_Metadata:
+      m_Items: []
+  - m_Id: 10385727219855360
+    m_Key: Phase.RoundBreak
+    m_Metadata:
+      m_Items: []
+  - m_Id: 10385960335077376
+    m_Key: Phase.None
+    m_Metadata:
+      m_Items: []
+  - m_Id: 10386784138326016
+    m_Key: Phase.DrawCards
+    m_Metadata:
+      m_Items: []
+  - m_Id: 10386834897793024
+    m_Key: Phase.CardSelection
+    m_Metadata:
+      m_Items: []
+  - m_Id: 10386933065478144
+    m_Key: Phase.PlayerAction
+    m_Metadata:
+      m_Items: []
+  - m_Id: 10388546920411136
+    m_Key: Phase.ResolveCards
+    m_Metadata:
+      m_Items: []
+  - m_Id: 10388605649055744
+    m_Key: Phase.RespawnWait
+    m_Metadata:
+      m_Items: []
+  - m_Id: 10388648586145792
+    m_Key: Phase.RoundEnd
+    m_Metadata:
+      m_Items: []
+  - m_Id: 10388695558156288
+    m_Key: PlayerColor.Red
+    m_Metadata:
+      m_Items: []
+  - m_Id: 10388739661262848
+    m_Key: PlayerColor.Blue
+    m_Metadata:
+      m_Items: []
+  - m_Id: 10388797693652992
+    m_Key: Announcer.TurnPrefix
+    m_Metadata:
+      m_Items: []
+  - m_Id: 10388868355092480
+    m_Key: Announcer.YourTurnColoredPart
+    m_Metadata:
+      m_Items: []
+  - m_Id: 10388984159825920
+    m_Key: Announcer.OpponentTurnColoredPart
+    m_Metadata:
+      m_Items: []
+  - m_Id: 10389089290055680
+    m_Key: Announcer.RespawnPrefix
+    m_Metadata:
+      m_Items: []
+  - m_Id: 10389174614781952
+    m_Key: Announcer.YourRespawnColoredPart
+    m_Metadata:
+      m_Items: []
+  - m_Id: 10389274019786752
+    m_Key: Announcer.OpponentRespawnColoredPart
+    m_Metadata:
+      m_Items: []
+  - m_Id: 12897104371150848
+    m_Key: btn_select
+    m_Metadata:
+      m_Items: []
+  - m_Id: 12897129557946368
+    m_Key: btn_join
+    m_Metadata:
+      m_Items: []
+  m_Metadata:
+    m_Items: []
+  m_KeyGenerator:
+    rid: 564089125146722378
+  references:
+    version: 2
+    RefIds:
+    - rid: 564089125146722378
+      type: {class: DistributedUIDGenerator, ns: UnityEngine.Localization.Tables, asm: Unity.Localization}
+      data:
+        m_CustomEpoch: 1780483629386

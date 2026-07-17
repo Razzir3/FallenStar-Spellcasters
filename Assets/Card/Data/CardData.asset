@@ -1,0 +1,40 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 35e057a332b76ef449489fa53ae1259b, type: 3}
+  m_Name: CardData
+  m_EditorClassIdentifier: Assembly-CSharp::CardData
+  m_cardId: 
+  m_artwork: {fileID: 0}
+  m_cardFrame: {fileID: 0}
+  m_cardBack: {fileID: 0}
+  m_nameKey: 
+  m_descKey: 
+  m_cost: 0
+  m_rarity: 0
+  m_specialSpecialization: 0
+  m_activities:
+  - s_actionType: 4
+    s_targetType: 0
+    s_effect: 0
+    s_value: 0
+  - s_actionType: 0
+    s_targetType: 0
+    s_effect: 0
+    s_value: 0
+  - s_actionType: 0
+    s_targetType: 0
+    s_effect: 0
+    s_value: 0
+  - s_actionType: 0
+    s_targetType: 0
+    s_effect: 0
+    s_value: 0

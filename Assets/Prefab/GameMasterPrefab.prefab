@@ -1,0 +1,79 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &1354593442379421177
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 9032832819769971345}
+  - component: {fileID: 36045435167056981}
+  - component: {fileID: 8870474668181991902}
+  m_Layer: 0
+  m_Name: GameMasterPrefab
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &9032832819769971345
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1354593442379421177}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 39.35037, y: 0, z: -42.52942}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &36045435167056981
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1354593442379421177}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
+  GlobalObjectIdHash: 125612881
+  InScenePlacedSourceGlobalObjectIdHash: 125612881
+  DeferredDespawnTick: 0
+  Ownership: 1
+  AlwaysReplicateAsRoot: 0
+  SynchronizeTransform: 1
+  ActiveSceneSynchronization: 0
+  SceneMigrationSynchronization: 0
+  SpawnWithObservers: 1
+  DontDestroyWithOwner: 0
+  AutoObjectParentSync: 1
+  SyncOwnerTransformWhenParented: 1
+  AllowOwnerToParent: 0
+--- !u!114 &8870474668181991902
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1354593442379421177}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 95b8c7e48d12d944a907f3f61248ee86, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GameMaster
+  ShowTopMostFoldoutHeaderGroup: 1
+  m_debugMode: 1
+  m_playerCharacterPrefab: {fileID: 6403573974869901999, guid: 85d2df341b9e9d44585b8ef1b85e3c5f, type: 3}
+  m_blockPrefab: {fileID: 5897222106206545586, guid: f6828605a06634d4fac3bc6afe5612b9, type: 3}
+  m_cardPrefab: {fileID: 3728755124164409081, guid: 938a8ac5039ae98409f2abf09b6f1c5e, type: 3}
+  m_cardDatabase: {fileID: 11400000, guid: fbc642087044efd4cbb977a830424f60, type: 2}
+  m_cardViewWorldPrefab: {fileID: 3796837257300125113, guid: 263593323c9e55a47a4c567e434f5b92, type: 3}
