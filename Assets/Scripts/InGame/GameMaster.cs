@@ -300,19 +300,51 @@ public partial class GameMaster : NetworkBehaviour
 
     public void ClearupAfterDisconnect()
     {
-        DespawnAllCards();
-
-        m_inputQueue.Clear();
-
-        foreach (var _spawnPoint in m_spawnPoint)
+        if (m_gameCoroutine != null)
         {
-            _spawnPoint.IsOccupied = false;
+            StopCoroutine(m_gameCoroutine);
+            m_gameCoroutine = null;
         }
 
-        foreach (var _playerSession in
-                 SessionManager.Instance.m_playerSessions)
+        m_inputQueue.Clear();
+        m_cardInputQueue.Clear();
+
+        m_players.Clear();
+        m_turnOrder.Clear();
+        m_turnSelections.Clear();
+
+        m_deck.Clear();
+        m_graveyard.Clear();
+        m_spawnedCards.Clear();
+
+        m_isResolvingCards = false;
+        m_isWaitingRespawn = false;
+        m_activePlayerConfirmedAction = false;
+        m_respawnConfirmed = false;
+        m_externalDeathDetected = false;
+        m_respawnBlockNetworkId = 0;
+
+        if (m_spawnPoint != null)
         {
-            _playerSession.Value.ClearSession();
+            foreach (var _spawnPoint in m_spawnPoint)
+            {
+                if (_spawnPoint == null)
+                    continue;
+
+                _spawnPoint.IsOccupied = false;
+            }
+        }
+
+        if (SessionManager.Instance != null)
+        {
+            foreach (var _playerSession in
+                     SessionManager.Instance.m_playerSessions)
+            {
+                if (_playerSession.Value == null)
+                    continue;
+
+                _playerSession.Value.ClearSession();
+            }
         }
 
         ClearPlayerCardWorldAreas();

@@ -618,13 +618,9 @@ public class PlayerSession : NetworkBehaviour
 
     public void ClearSession()
     {
-               ClearHand();
-        ClearBlocks();
-        if (m_currentCharacter != null && m_currentCharacter.NetworkObject != null && m_currentCharacter.NetworkObject.IsSpawned)
-        {
-            m_currentCharacter.NetworkObject.Despawn(true);
-        }
         m_currentCharacter = null;
+        ClearLocalCardSelection();
+        ClearSelectedCard();
     }
 
     public void SetSelectedCard(NetworkCard card)
