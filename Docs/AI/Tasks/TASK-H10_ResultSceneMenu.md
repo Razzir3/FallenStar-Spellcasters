@@ -41,13 +41,21 @@ Existing patterns to follow:
 1. Serialized fields:
    - `LocalizeStringEvent m_titleText`, `LocalizeStringEvent m_reasonText`
    - `LocalizedString m_titleWin`, `m_titleLose`, `m_titleDraw`
-   - `LocalizedString m_reasonLivesDepleted`, `m_reasonOpponentLeft`
+   - `LocalizedString m_reasonYouLostLives`, `m_reasonOpponentLostLives`, `m_reasonBothLostLives`, `m_reasonOpponentLeft`
    - `bool m_debugMode`
 2. In `Start()`:
    - If `!MatchResultData.HasResult`, hide the title and reason objects. Only the button remains.
    - Otherwise:
      - set `m_titleText.StringReference` to `m_titleDraw` / `m_titleWin` / `m_titleLose`
-     - set `m_reasonText.StringReference` from `Reason`
+     - set `m_reasonText.StringReference` from `Reason` and the player's own outcome:
+
+       | `Reason` | Outcome | Reason string |
+       |---|---|---|
+       | `LivesDepleted` | lost | `m_reasonYouLostLives` |
+       | `LivesDepleted` | won | `m_reasonOpponentLostLives` |
+       | `LivesDepleted` | draw | `m_reasonBothLostLives` |
+       | `OpponentDisconnected` | any | `m_reasonOpponentLeft` (only the remaining player ever sees this) |
+
      - call `RefreshString()` on both
 
    `LocalizeStringEvent` updates automatically when the locale changes, so don't use a one-shot `GetLocalizedString` (L7).
@@ -75,7 +83,9 @@ Existing patterns to follow:
 | `result_title_win` | Victory! | Победа! | 勝利！ |
 | `result_title_lose` | Defeat | Поражение | 敗北 |
 | `result_title_draw` | Draw | Ничья | 引き分け |
-| `result_reason_livesDepleted` | A player has lost all lives. | Игрок потерял все жизни. | プレイヤーのライフが尽きました。 |
+| `result_reason_youLostLives` | You lost all your lives. | Вы потеряли все жизни. | あなたのライフがすべて尽きました。 |
+| `result_reason_opponentLostLives` | Your opponent lost all their lives. | Соперник потерял все жизни. | 相手のライフがすべて尽きました。 |
+| `result_reason_bothLostLives` | Both players lost all their lives. | Оба игрока потеряли все жизни. | 両方のプレイヤーのライフが尽きました。 |
 | `result_reason_opponentLeft` | Your opponent left the match. | Соперник покинул матч. | 相手が試合から退出しました。 |
 | `btn_toMainMenu` | Main menu | Главное меню | メインメニュー |
 
@@ -97,7 +107,7 @@ The texts are proposals; the owner may adjust them. Add the keys through the Loc
 
 ## 7. Acceptance criteria
 
-- [ ] The winner sees "Victory!" plus the reason, the loser sees "Defeat" plus the reason, and a draw shows "Draw".
+- [ ] The winner sees "Victory!" with "Your opponent lost all their lives.", the loser sees "Defeat" with "You lost all your lives.", and a draw shows "Draw" with "Both players lost all their lives."
 - [ ] With `Reason == OpponentDisconnected` (H6), the remaining player sees "Your opponent left the match."
 - [ ] Opening `ResultScene` directly (no result) shows only the button, with no errors.
 - [ ] The button loads `MainMenuScene`, and `MatchResultData.HasResult` is false afterwards. Double clicks cause no errors.
@@ -122,5 +132,5 @@ No automated tests. Review checklist:
 
 ## 10. Open questions and assumptions
 
-- **Q1:** should the reason line differ between winner and loser? For example, the loser sees "You lost all lives" and the winner sees "Your opponent lost all lives". That would need 2 more keys. The current proposal uses one neutral sentence.
+- **Q1 (resolved by the owner, 2026-10-18):** the reason line differs by outcome: "You lost…" for the loser, "Your opponent lost…" for the winner. A third sentence covers the rare draw, where both players lose their last life in the same resolution.
 - **A1:** `AppRoot` (with `SceneFlowManager`) persists across scenes (`DontDestroyOnLoad`), so `SceneFlowManager.Instance` is available in `ResultScene`. That was verified in the first audit.

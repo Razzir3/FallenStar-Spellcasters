@@ -95,6 +95,8 @@ public partial class GameMaster : NetworkBehaviour
 
     private Coroutine m_gameCoroutine;
 
+    private bool m_isAbortingMatch = false;
+
     public NetworkVariable<float> m_timer;
 
     private bool m_externalDeathDetected = false;
@@ -393,6 +395,22 @@ public partial class GameMaster : NetworkBehaviour
         }
     }
     #endregion
+    public void AbortMatch(string reason)
+    {
+        if (!IsServer || m_isAbortingMatch)
+            return;
+
+        m_isAbortingMatch = true;
+        m_gamePhase.Value = GamePhase.None;
+
+        Debug.LogError("GameMaster: match aborted. Reason: " + reason);
+
+        if (MultiplayerManager.Instance != null)
+        {
+            MultiplayerManager.Instance.Disconnect();
+        }
+    }
+
     public void StartNewGame()
     {
         if (!IsServer)
@@ -402,6 +420,8 @@ public partial class GameMaster : NetworkBehaviour
 
             return;
         }
+
+        m_isAbortingMatch = false;
 
         if (m_gameCoroutine != null)
         {
@@ -478,7 +498,7 @@ public partial class GameMaster : NetworkBehaviour
         CreateDeck();
 
         m_gameCoroutine =
-            StartCoroutine(GameLoop());
+            StartCoroutine(RunGuarded(GameLoop()));
 
         Debug.Log(
             "GameMaster: new GameLoop started.");

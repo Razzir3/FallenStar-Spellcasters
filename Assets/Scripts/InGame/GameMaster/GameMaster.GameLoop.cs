@@ -37,6 +37,60 @@ public partial class GameMaster
             && !m_isResolvingCards && !m_isWaitingRespawn;
     }
     #endregion
+    private IEnumerator RunGuarded(IEnumerator root)
+    {
+        Stack<IEnumerator> stack = new();
+        stack.Push(root);
+
+        while (stack.Count > 0)
+        {
+            IEnumerator top = stack.Peek();
+            bool hasNext = false;
+            object current = null;
+            System.Exception loopException = null;
+
+            try
+            {
+                hasNext = top.MoveNext();
+                if (hasNext)
+                {
+                    current = top.Current;
+                }
+            }
+            catch (System.Exception e)
+            {
+                loopException = e;
+            }
+
+            if (loopException != null)
+            {
+                Debug.LogException(loopException);
+                Debug.LogError($"GameMaster: game loop aborted by exception in phase {m_gamePhase.Value}.");
+
+                // Disconnect can reach H7 cleanup synchronously; the runner exits itself.
+                m_gameCoroutine = null;
+                AbortMatch("loop_exception");
+                yield break;
+            }
+
+            if (!hasNext)
+            {
+                stack.Pop();
+                continue;
+            }
+
+            if (current is IEnumerator nested)
+            {
+                stack.Push(nested);
+                continue;
+            }
+
+            yield return current;
+        }
+
+        m_gameCoroutine = null;
+    }
+
     /// <summary>
     /// Main game loop coroutine that manages the flow of the game through its various phases until the game is finished.
     /// </summary>
