@@ -32,7 +32,7 @@ public partial class GameMaster
                 }
 
             };
-            //We get the NetworkClient of the client that sent the package to access its PlayerObject and apply the movement based on the input received
+            //Only process movement for connected clients.
             if (!NetworkManager.Singleton.ConnectedClients.ContainsKey(_package.ClientId))
             {
                 if (m_debugMode)
@@ -42,21 +42,44 @@ public partial class GameMaster
 
                 continue;
             }
-            NetworkClient _client = NetworkManager.Singleton.ConnectedClients[_package.ClientId];
+            PlayerSession _session = SessionManager.Instance != null
+                ? SessionManager.Instance.GetPlayerSession(_package.ClientId)
+                : null;
 
-            var _playerController = _client.PlayerObject.GetComponent<PlayerController>();
-
-            if (_playerController != null)
+            if (_session == null)
             {
-
-                MoveInputProcessing(_playerController, _package);
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
                 if (m_debugMode)
                 {
-                    HPDeltaProcessing(_playerController, _package);
+                    Debug.Log("Movement input rejected: no player session.");
                 }
-#endif
+
+                continue;
             }
+
+            if (!CanPlayerMove(_session))
+            {
+                if (m_debugMode)
+                {
+                    Debug.LogWarning("Movement input rejected: player cannot move in the current phase or turn.");
+                }
+
+                continue;
+            }
+
+            PlayerController _playerController = _session.GetCharacter();
+
+            if (_playerController == null || _playerController.OwnerClientId != _package.ClientId)
+            {
+                continue;
+            }
+
+            MoveInputProcessing(_playerController, _package);
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            if (m_debugMode)
+            {
+                HPDeltaProcessing(_playerController, _package);
+            }
+#endif
 
             //Send Package back to the client to confirm that the input was processed and to update the client's state if necessary
             if (!NetworkManager.Singleton.ConnectedClients.ContainsKey(_package.ClientId))
