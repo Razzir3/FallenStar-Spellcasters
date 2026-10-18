@@ -310,6 +310,19 @@ public class PlayerUI : NetworkBehaviour
         else cardView.ClearSelectedColor();
     }
 
+    public void OnSelectionRejected()
+    {
+        ClearSelectedCard();
+
+        foreach (CardViewUI cardView in m_cardViews.Values)
+        {
+            if (cardView != null)
+            {
+                cardView.ClearSelectedColor();
+            }
+        }
+    }
+
     public void ClearSelectedCard()
     {
         if (m_selectedNetworkCard != null)

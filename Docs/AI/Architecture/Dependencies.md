@@ -142,7 +142,8 @@ graph TD
 | `GameMaster.m_activePlayer` / `m_waitingRespawnPlayer` (`NetworkBehaviourReference`) | server | `GameAnnouncerUI`, `GameMaster.Can*`, `IsWaitingRespawnPlayer` |
 | `PlayerSession.m_handCards/m_boardPlayCards/m_boardDiscardCards` | server | `PlayerUI` (local session only), `CardWorldViewManager` (all sessions board), `GameMaster` |
 | `PlayerSession.TeamId/ClientId/CharacterObjectId/m_lifeCurrent/m_currentOponentNetworkObjectId` | server | UI, `GameMaster`, `CardWorldViewManager`, `PlayerCardWorldArea` binding |
-| `PlayerSession.m_manaCapacity/m_manaCurrent` (MANA1) | server `GameMaster.StartNewGame`, `ApplyRoundManaGrowth`; current also through `AddMana` | everyone may read; spending and UI are deferred to MANA2/MANA3 |
+| `PlayerSession.m_manaCapacity/m_manaCurrent` (MANA1/MANA2) | server `GameMaster.StartNewGame`, `ApplyRoundManaGrowth`; accepted selection spending through `AddMana` | everyone may read; local play selection checks current mana; display is deferred to MANA3 |
+| `PlayerSession.SelectionRejectedClientRpc` (MANA2) | server `HandleConfirmSelectionTurn`, targeted at the session owner | owner only: clears local selection and calls `PlayerUI.OnSelectionRejected` to clear highlights |
 | `SessionManager.SessionDataList` (`NetworkList<SessionData>`) | server | all peers → `RebuildDictionary` → `m_playerSessions` |
 | `NetworkCard.m_ownerId/m_location/m_isRotated/m_isFaceUp` | server | `CardWorldViewManager`, `CardViewWorld` |
 | `NetworkCard.m_cardData` | **server direct field + `SendCardDataClientRpc` per client** | every view, `GameMaster`, `PlayerSession` |

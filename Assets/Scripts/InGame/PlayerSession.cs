@@ -175,6 +175,23 @@ public class PlayerSession : NetworkBehaviour
         Debug.Log("Rpc called");
     }
 
+    [ClientRpc]
+    public void SelectionRejectedClientRpc(ClientRpcParams clientRpcParams = default)
+    {
+        if (!IsOwner)
+            return;
+
+        ClearLocalCardSelection();
+        ClearSelectedCard();
+
+        if (PlayerUI.Instance != null)
+        {
+            PlayerUI.Instance.OnSelectionRejected();
+        }
+
+        //Todo MANA3: show the localized not-enough-mana message.
+    }
+
     private ulong[] ConvertCardsToNetworkId(List<NetworkCard> cards)
     {
         List<ulong> _result = new();
@@ -206,9 +223,30 @@ public class PlayerSession : NetworkBehaviour
             return false;
         }
 
+        if (card.m_cardData == null)
+            return false;
+
+        if (SelectedPlayCost() + card.m_cardData.m_cost > m_manaCurrent.Value)
+            return false;
+
         m_selectedCardsToPlay.Add(card);
         return true;
     }
+
+    private int SelectedPlayCost()
+    {
+        int _playCost = 0;
+        foreach (NetworkCard card in m_selectedCardsToPlay)
+        {
+            if (card != null && card.m_cardData != null)
+            {
+                _playCost += card.m_cardData.m_cost;
+            }
+        }
+
+        return _playCost;
+    }
+
     public bool SelectCardToDiscard(NetworkCard card)
     {
         if (card == null)

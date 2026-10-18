@@ -321,7 +321,7 @@ public partial class GameMaster
     /// <param name="playCardNetworkId"></param>
     /// <param name="discardCardNetworkId"></param>
     /// <param name="turnSelections">The accepted card selection for this session.</param>
-    /// <returns>True if this is the session's first confirmation in this selection phase.</returns>
+    /// <returns>True if this is the session's first accepted confirmation in this selection phase.</returns>
     private bool HandleConfirmSelectionTurn(PlayerSession session, ulong[] playCardNetworkId, ulong[] discardCardNetworkId,
                                            out PlayerTurnSelection turnSelections)
     {
@@ -347,14 +347,38 @@ public partial class GameMaster
         ValidateSelectionCards(session, playCardNetworkId, turnSelections.m_cardsToPlay, usedIds, rejectedIds);
         ValidateSelectionCards(session, discardCardNetworkId, turnSelections.m_cardToDiscard, usedIds, rejectedIds);
 
-        turnSelections.m_isConfirmed = true;
-
         if (rejectedIds.Count > 0)
         {
             Debug.LogWarning($"Card selection rejected IDs for player {session.OwnerClientId}: {string.Join(", ", rejectedIds)}.");
             session.ReportSuspicious(SuspiciousActionType.InvalidCardSelection,
                 $"Rejected card IDs: {string.Join(", ", rejectedIds)}.");
         }
+
+        int _playCost = 0;
+        foreach (NetworkCard card in turnSelections.m_cardsToPlay)
+        {
+            _playCost += card.m_cardData.m_cost;
+        }
+
+        if (_playCost > session.m_manaCurrent.Value)
+        {
+            turnSelections.m_cardsToPlay.Clear();
+            turnSelections.m_cardToDiscard.Clear();
+            session.ReportSuspicious(SuspiciousActionType.ManaOverBudget,
+                $"cost {_playCost} > mana {session.m_manaCurrent.Value}");
+            session.SelectionRejectedClientRpc(new ClientRpcParams
+            {
+                Send = new ClientRpcSendParams
+                {
+                    TargetClientIds = new[] { session.OwnerClientId }
+                }
+            });
+            ResetCardSelectionTimer(session);
+            return false;
+        }
+
+        AddMana(session, -_playCost);
+        turnSelections.m_isConfirmed = true;
 
         if (m_debugMode)
         {

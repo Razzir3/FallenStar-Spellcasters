@@ -497,6 +497,23 @@ public partial class GameMaster
             MoveCardOnGraveyard(_currentCard);
         }
     }
+    private void ResetCardSelectionTimer(PlayerSession session)
+    {
+        if (!IsServer || session == null || m_gamePhase.Value != GamePhase.CardSelection)
+            return;
+
+        m_selectionTimerResetsThisPhase.TryGetValue(session, out int _phaseResets);
+        m_selectionTimerResetsThisMatch.TryGetValue(session, out int _matchResets);
+
+        if (_phaseResets >= m_maxSelectionTimerResetsPerPhase ||
+            _matchResets >= m_maxSelectionTimerResetsPerMatch)
+            return;
+
+        m_selectionTimerResetsThisPhase[session] = _phaseResets + 1;
+        m_selectionTimerResetsThisMatch[session] = _matchResets + 1;
+        m_timer.Value = 0f;
+    }
+
     /// <summary>
     /// Performs the card selection phase, allowing players to select cards for their turn. It sets the game phase to CardSelection, initializes player selections, and waits for all players to confirm their selections or until the card selection time limit is reached. After the selection phase, it builds the turn order based on card costs.
     /// </summary>
@@ -505,6 +522,7 @@ public partial class GameMaster
     {
         m_gamePhase.Value = GamePhase.CardSelection;
 
+        m_selectionTimerResetsThisPhase.Clear();
         m_turnSelections.Clear();
 
         foreach (PlayerSession player in m_players)

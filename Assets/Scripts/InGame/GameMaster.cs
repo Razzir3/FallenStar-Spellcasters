@@ -80,11 +80,15 @@ public partial class GameMaster : NetworkBehaviour
     [SerializeField] private int m_baseMana = 2;
     [SerializeField] private int m_manaGrowthStep = 2;
     [SerializeField] private int m_maxMana = 20;
+    [SerializeField] private int m_maxSelectionTimerResetsPerPhase = 1;
+    [SerializeField] private int m_maxSelectionTimerResetsPerMatch = 3;
 
     public NetworkVariable <GamePhase> m_gamePhase = new NetworkVariable<GamePhase>(GamePhase.None, NetworkVariableReadPermission.Everyone,NetworkVariableWritePermission.Server);
 
     private List<PlayerSession> m_players = new();
     private readonly Dictionary<PlayerSession, PlayerTurnSelection> m_turnSelections = new();
+    private readonly Dictionary<PlayerSession, int> m_selectionTimerResetsThisPhase = new();
+    private readonly Dictionary<PlayerSession, int> m_selectionTimerResetsThisMatch = new();
 
     public NetworkVariable<NetworkBehaviourReference> m_activePlayer;
     public NetworkVariable<NetworkBehaviourReference> m_waitingRespawnPlayer;
@@ -510,6 +514,7 @@ public partial class GameMaster : NetworkBehaviour
         m_players.Clear();
         m_turnOrder.Clear();
         m_turnSelections.Clear();
+        m_selectionTimerResetsThisMatch.Clear();
 
         m_inputQueue.Clear();
         m_cardInputQueue.Clear();
