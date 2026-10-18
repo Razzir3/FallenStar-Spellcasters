@@ -39,6 +39,8 @@ public class PlayerSession : NetworkBehaviour
 
     private int m_lifeMax = 0;
     public NetworkVariable<int> m_lifeCurrent = new NetworkVariable<int>(1, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+    public NetworkVariable<int> m_manaCapacity = new NetworkVariable<int>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+    public NetworkVariable<int> m_manaCurrent = new NetworkVariable<int>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
     private SpawnPoint m_spawnPoint;
 

@@ -97,12 +97,15 @@ public partial class GameMaster
     /// <returns>An IEnumerator for coroutine handling.</returns>
     private IEnumerator GameLoop()
     {
+        bool _isFirstRound = true;
+
         while (!IsGameFinished())
         {
-            yield return RoundBreakPhase();
+            yield return RoundBreakPhase(_isFirstRound);
             yield return DrawCardPhase();
             yield return CardSelectionPhase();
             yield return PlayerTurnPhase();
+            _isFirstRound = false;
         }
         List<PlayerSession> remainingPlayers = new();
         foreach (PlayerSession player in m_players)
@@ -373,12 +376,42 @@ public partial class GameMaster
         }
     }
     /// <summary>
+    /// The only place the round mana growth rule lives. A future mixed model,
+    /// such as partial carry-over, changes only this method.
+    /// </summary>
+    private void ApplyRoundManaGrowth(PlayerSession player, bool isFirstRound)
+    {
+        if (!IsServer || player == null)
+            return;
+
+        if (!isFirstRound)
+        {
+            player.m_manaCapacity.Value = Mathf.Min(player.m_manaCapacity.Value + m_manaGrowthStep, m_maxMana);
+        }
+
+        player.m_manaCurrent.Value = player.m_manaCapacity.Value;
+    }
+
+    public void AddMana(PlayerSession player, int delta)
+    {
+        if (!IsServer || player == null)
+            return;
+
+        player.m_manaCurrent.Value = Mathf.Clamp(player.m_manaCurrent.Value + delta, 0, player.m_manaCapacity.Value);
+    }
+
+    /// <summary>
     ///  Performs the round break phase, allowing for a pause between rounds. It sets the game phase to RoundBreak and waits for the specified round break time before proceeding to the next phase.
     /// </summary>
     /// <returns>An IEnumerator for coroutine handling.</returns>
-    private IEnumerator RoundBreakPhase()
+    private IEnumerator RoundBreakPhase(bool isFirstRound)
     {
         m_gamePhase.Value = GamePhase.RoundBreak;
+
+        foreach (PlayerSession player in m_players)
+        {
+            ApplyRoundManaGrowth(player, isFirstRound);
+        }
 
         if (m_debugMode)
         {

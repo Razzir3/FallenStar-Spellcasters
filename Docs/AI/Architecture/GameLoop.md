@@ -102,6 +102,14 @@ GameLoop()  (GameLoop.cs:44)
  Debug.LogError("Game finished. You won/lost")   ← end of match (server log only)
 ```
 
+### Mana at match start and RoundBreak (MANA1, 2026-10-19)
+
+- `StartNewGame` initializes both spawned sessions after the two-player check: capacity = `Clamp(m_baseMana, 0, m_maxMana)` and current = capacity. Defaults are base 2, growth step 2, cap 20.
+- At the start of `RoundBreakPhase`, after assigning `GamePhase.RoundBreak`, the server calls `ApplyRoundManaGrowth` for each player. Round one only refills; later rounds increase capacity by the step up to the cap, then refill current to capacity. The local first-round flag resets on each new `GameLoop`.
+- `ApplyRoundManaGrowth` is the single extension point for changing the round-growth/refill model. `AddMana(player, delta)` is a server-only helper for later spending/effects, clamped to `[0, capacity]`.
+- `PlayerSession.m_manaCapacity` and `m_manaCurrent` are server-written NetworkVariables readable by everyone. Mana is not written in `PlayerSession.Initialize`; phase timing and turn order are unchanged. Spending and UI belong to MANA2/MANA3.
+- These paths were checked statically; host/client replication and round progression still require Play Mode verification.
+
 ### 3.1 PlayerActionPhase (`GameLoop.cs:91`) [Confirmed]
 Each frame, until timeout or `m_activePlayerConfirmedAction` with an empty queue:
 1. If `m_externalDeathDetected || IsAnyPlayerDead()`, it breaks out when the game is finished. Otherwise it runs `WaitForRespawnIfNeeded()`, then restores `PlayerAction` and the active player.

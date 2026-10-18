@@ -217,6 +217,38 @@ MonoBehaviour:
     m_Localized: Game over
     m_Metadata:
       m_Items: []
+  - m_Id: 49717325267271680
+    m_Localized: Victory!
+    m_Metadata:
+      m_Items: []
+  - m_Id: 49717325317603328
+    m_Localized: Defeat
+    m_Metadata:
+      m_Items: []
+  - m_Id: 49717325317603329
+    m_Localized: Draw
+    m_Metadata:
+      m_Items: []
+  - m_Id: 49717325317603330
+    m_Localized: You lost all your lives.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 49717325317603331
+    m_Localized: Your opponent lost all their lives.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 49717325317603332
+    m_Localized: Both players lost all their lives.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 49717325317603333
+    m_Localized: Your opponent left the match.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 49717325317603334
+    m_Localized: Main menu
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds:

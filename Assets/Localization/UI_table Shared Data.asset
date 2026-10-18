@@ -15,6 +15,38 @@ MonoBehaviour:
   m_TableCollectionName: UI_table
   m_TableCollectionNameGuidString: 5f329d5350a5fd44e86607395a0dd117
   m_Entries:
+  - m_Id: 49717325267271680
+    m_Key: result_title_win
+    m_Metadata:
+      m_Items: []
+  - m_Id: 49717325317603328
+    m_Key: result_title_lose
+    m_Metadata:
+      m_Items: []
+  - m_Id: 49717325317603329
+    m_Key: result_title_draw
+    m_Metadata:
+      m_Items: []
+  - m_Id: 49717325317603330
+    m_Key: result_reason_youLostLives
+    m_Metadata:
+      m_Items: []
+  - m_Id: 49717325317603331
+    m_Key: result_reason_opponentLostLives
+    m_Metadata:
+      m_Items: []
+  - m_Id: 49717325317603332
+    m_Key: result_reason_bothLostLives
+    m_Metadata:
+      m_Items: []
+  - m_Id: 49717325317603333
+    m_Key: result_reason_opponentLeft
+    m_Metadata:
+      m_Items: []
+  - m_Id: 49717325317603334
+    m_Key: btn_toMainMenu
+    m_Metadata:
+      m_Items: []
   - m_Id: 49584400148267008
     m_Key: Phase.GameOver
     m_Metadata:

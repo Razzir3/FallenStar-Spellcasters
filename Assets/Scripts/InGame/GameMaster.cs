@@ -77,6 +77,9 @@ public partial class GameMaster : NetworkBehaviour
     private float m_stepMoveDistance = 3f;
     [Header("GameRules")]
     [SerializeField] private int m_startHandCards = 2;
+    [SerializeField] private int m_baseMana = 2;
+    [SerializeField] private int m_manaGrowthStep = 2;
+    [SerializeField] private int m_maxMana = 20;
 
     public NetworkVariable <GamePhase> m_gamePhase = new NetworkVariable<GamePhase>(GamePhase.None, NetworkVariableReadPermission.Everyone,NetworkVariableWritePermission.Server);
 
@@ -558,6 +561,12 @@ public partial class GameMaster : NetworkBehaviour
                 $"found {m_players.Count}.");
 
             return;
+        }
+
+        foreach (PlayerSession player in m_players)
+        {
+            player.m_manaCapacity.Value = Mathf.Clamp(m_baseMana, 0, m_maxMana);
+            player.m_manaCurrent.Value = player.m_manaCapacity.Value;
         }
 
         m_players[0].SetOponent(
