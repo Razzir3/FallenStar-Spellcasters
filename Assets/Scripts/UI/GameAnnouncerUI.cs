@@ -126,6 +126,7 @@ public class GameAnnouncerUI : MonoBehaviour
           GamePhase.ResolveCards => "Phase.ResolveCards",
           GamePhase.RespawnWait => "Phase.RespawnWait",
           GamePhase.RoundEnd => "Phase.RoundEnd",
+          GamePhase.GameOver => "Phase.GameOver",
           _ => throw new System.ArgumentOutOfRangeException(nameof(phase), phase, null)
         };
     }

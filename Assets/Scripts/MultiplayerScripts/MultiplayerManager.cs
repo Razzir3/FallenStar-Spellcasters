@@ -31,6 +31,8 @@ public class MultiplayerManager : MonoBehaviour
 
     private bool m_onDisconnecting = false;
     private bool m_onApplicationClosing = false;
+    private bool m_isLeavingToResult = false;
+    [SerializeField] private float m_resultLeaveTimeout = 3f;
     //ToDo Need full rework
     public TMP_Text m_lobbyCode;
     public GameObject m_lobbyCodePanel;
@@ -210,6 +212,12 @@ public class MultiplayerManager : MonoBehaviour
     }
     private void OnClientDisconnected(ulong clientId)
     {
+        if (m_isLeavingToResult)
+        {
+            if (m_debugMode) Debug.Log("Disconnect ignored while leaving for ResultScene.");
+            return;
+        }
+
         if (m_debugMode)
         {
             Debug.Log("Client disconnected: " + clientId);
@@ -335,6 +343,126 @@ public class MultiplayerManager : MonoBehaviour
             CleanupAfterDisconnect();
         }
     }
+    public async void LeaveMatchToResultScene()
+    {
+        if (m_isLeavingToResult)
+            return;
+
+        m_isLeavingToResult = true;
+        m_onDisconnecting = true;
+
+        NetworkManager networkManager = NetworkManager.Singleton;
+        bool isHost = networkManager != null && networkManager.IsHost;
+
+        try
+        {
+            if (isHost)
+            {
+                float deadline = Time.realtimeSinceStartup + m_resultLeaveTimeout;
+                while (networkManager != null && networkManager.IsListening &&
+                       networkManager.ConnectedClientsIds.Count > 1 && Time.realtimeSinceStartup < deadline)
+                {
+                    await Task.Delay(100);
+                }
+            }
+
+            try
+            {
+                if (m_currentLobby != null)
+                {
+                    if (isHost)
+                    {
+                        await LobbyService.Instance.DeleteLobbyAsync(m_currentLobby.Id);
+                    }
+                    else
+                    {
+                        await LobbyService.Instance.RemovePlayerAsync(
+                            m_currentLobby.Id, AuthenticationService.Instance.PlayerId);
+                    }
+                }
+            }
+            catch (LobbyServiceException e)
+            {
+                Debug.LogWarning(e.Message);
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogException(e);
+            }
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogException(e);
+        }
+        finally
+        {
+            try
+            {
+                try
+                {
+                    if (GameMaster.Instance != null)
+                    {
+                        GameMaster.Instance.ClearupAfterDisconnect();
+                    }
+                }
+                catch (System.Exception e)
+                {
+                    Debug.LogException(e);
+                }
+
+                if (networkManager != null && networkManager.IsListening)
+                {
+                    networkManager.Shutdown();
+                }
+
+                // Shutdown is deferred; suppress disconnect redirects until its callbacks finish.
+                while (networkManager != null && networkManager.ShutdownInProgress)
+                {
+                    await Task.Yield();
+                }
+
+                try
+                {
+                    if (SessionManager.Instance != null)
+                    {
+                        SessionManager.Instance.ClearSessionOnDisconnect();
+                    }
+                }
+                finally
+                {
+                    m_currentLobby = null;
+                    m_currentMultiplayerStatus = MultiplayerStatus.InMenuStatus;
+                    m_isStartingGameScene = false;
+
+                    if (m_startGameSceneCoroutine != null)
+                    {
+                        StopCoroutine(m_startGameSceneCoroutine);
+                        m_startGameSceneCoroutine = null;
+                    }
+                }
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogException(e);
+            }
+            finally
+            {
+                try
+                {
+                    if (SceneFlowManager.Instance != null)
+                    {
+                        SceneFlowManager.Instance.LoadResultScene();
+                    }
+                }
+                finally
+                {
+                    m_onDisconnecting = false;
+                    m_isLeavingToResult = false;
+                }
+            }
+        }
+    }
+
     private async Task ShutdownHostInternal()
     {
         if (m_debugMode)

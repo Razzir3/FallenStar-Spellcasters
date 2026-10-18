@@ -13,6 +13,7 @@ public class SceneFlowManager : MonoBehaviour
     [SerializeField] private string m_lobbySceneName = "LobbyScene";
     [SerializeField] private string m_gameSceneName = "GameScene";
     [SerializeField] private string m_settingsSceneName = "SettingsScene";
+    [SerializeField] private string m_resultSceneName = "ResultScene";
 
     private bool m_isLoadingScene = false;
 
@@ -56,6 +57,10 @@ public class SceneFlowManager : MonoBehaviour
     public void LoadSettingsScene()
     {
         LoadOfflineScene(m_settingsSceneName);
+    }
+    public void LoadResultScene()
+    {
+        LoadOfflineScene(m_resultSceneName);
     }
     private void LoadOfflineScene(string sceneName)
     {

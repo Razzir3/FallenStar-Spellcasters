@@ -145,6 +145,9 @@ public class PlayerUI : NetworkBehaviour
 
         switch (GameMaster.Instance.m_gamePhase.Value)
         {
+            case GamePhase.GameOver:
+                break;
+
             case GamePhase.None:
             case GamePhase.DrawCards:
             case GamePhase.RoundBreak:

@@ -15,7 +15,14 @@ public enum GamePhase
     PlayerAction,
     ResolveCards,
     RespawnWait,
-    RoundEnd
+    RoundEnd,
+    GameOver
+}
+
+public enum MatchEndReason
+{
+    LivesDepleted,
+    OpponentDisconnected
 }
 
 public static class ListExtensions
@@ -96,6 +103,8 @@ public partial class GameMaster : NetworkBehaviour
     private Coroutine m_gameCoroutine;
 
     private bool m_isAbortingMatch = false;
+    private bool m_isMatchEnded = false;
+    private const ulong k_NoWinnerClientId = ulong.MaxValue;
 
     public NetworkVariable<float> m_timer;
 
@@ -395,6 +404,41 @@ public partial class GameMaster : NetworkBehaviour
         }
     }
     #endregion
+    public void EndMatch(PlayerSession winner, MatchEndReason reason)
+    {
+        if (!IsServer || m_isMatchEnded)
+            return;
+
+        m_isMatchEnded = true;
+        m_gamePhase.Value = GamePhase.GameOver;
+        m_activePlayer.Value = default;
+        m_waitingRespawnPlayer.Value = default;
+        m_inputQueue.Clear();
+        m_cardInputQueue.Clear();
+
+        ulong winnerClientId = winner != null ? winner.OwnerClientId : k_NoWinnerClientId;
+
+        if (m_debugMode)
+        {
+            Debug.Log($"GameMaster: match ended. Winner: {winnerClientId}. Reason: {reason}");
+        }
+
+        MatchEndedClientRpc(winnerClientId, reason);
+    }
+
+    [ClientRpc]
+    private void MatchEndedClientRpc(ulong winnerClientId, MatchEndReason reason)
+    {
+        bool isDraw = winnerClientId == k_NoWinnerClientId;
+        bool isWinner = !isDraw && winnerClientId == NetworkManager.Singleton.LocalClientId;
+        MatchResultData.Set(isWinner, isDraw, reason);
+
+        if (MultiplayerManager.Instance != null)
+        {
+            MultiplayerManager.Instance.LeaveMatchToResultScene();
+        }
+    }
+
     public void AbortMatch(string reason)
     {
         if (!IsServer || m_isAbortingMatch)
@@ -422,6 +466,7 @@ public partial class GameMaster : NetworkBehaviour
         }
 
         m_isAbortingMatch = false;
+        m_isMatchEnded = false;
 
         if (m_gameCoroutine != null)
         {

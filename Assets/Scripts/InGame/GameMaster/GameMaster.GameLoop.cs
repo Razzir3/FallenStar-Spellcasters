@@ -104,15 +104,20 @@ public partial class GameMaster
             yield return CardSelectionPhase();
             yield return PlayerTurnPhase();
         }
-        switch (m_isLocalPlayerLost)
+        List<PlayerSession> remainingPlayers = new();
+        foreach (PlayerSession player in m_players)
         {
-            case true:
-                Debug.LogError("Game finished. You lost.");
-                break;
-            case false:
-                Debug.LogError("Game finished. You won.");
-                break;
+            if (player != null && player.TeamId.Value != -1 &&
+                (player.GetCharacter() != null || player.m_lifeCurrent.Value > 0))
+            {
+                remainingPlayers.Add(player);
+            }
         }
+
+        PlayerSession winner = remainingPlayers.Count == 1 ? remainingPlayers[0] : null;
+        // The host RPC can enter disconnect cleanup before this iterator returns.
+        m_gameCoroutine = null;
+        EndMatch(winner, MatchEndReason.LivesDepleted);
     }
     /// <summary>
     /// Processes each player's turn in the order determined by the turn order list. It handles the player action phase for each player and checks if the game is finished after each turn.
