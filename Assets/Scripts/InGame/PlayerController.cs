@@ -181,10 +181,12 @@ using UnityEngine.InputSystem;
                 _horizontal = 1;
             }
 
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
             if (Keyboard.current.spaceKey.wasPressedThisFrame)
                 {
                     _hpDelta -= 10;
                 }
+#endif
             }
 
             if (_horizontal != 0 || _vertical != 0 || _hpDelta != 0)

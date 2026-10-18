@@ -50,7 +50,12 @@ public partial class GameMaster
             {
 
                 MoveInputProcessing(_playerController, _package);
-                HPDeltaProcessing(_playerController, _package);
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                if (m_debugMode)
+                {
+                    HPDeltaProcessing(_playerController, _package);
+                }
+#endif
             }
 
             //Send Package back to the client to confirm that the input was processed and to update the client's state if necessary
