@@ -155,6 +155,12 @@ public class SessionManager : NetworkBehaviour
 
     private void OnClientDisconnected(ulong clientId)
     {
+        if (IsServer && GameMaster.Instance != null &&
+            m_playerSessions.TryGetValue(clientId, out PlayerSession _leaving) && _leaving != null)
+        {
+            GameMaster.Instance.HandlePlayerLeft(_leaving);
+        }
+
         if (m_debugMode)
         {
             Debug.Log("Client disconnected: " + clientId);

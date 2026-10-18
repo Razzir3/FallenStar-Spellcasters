@@ -15,6 +15,10 @@ MonoBehaviour:
   m_TableCollectionName: UI_table
   m_TableCollectionNameGuidString: 5f329d5350a5fd44e86607395a0dd117
   m_Entries:
+  - m_Id: 49584400148267008
+    m_Key: Phase.GameOver
+    m_Metadata:
+      m_Items: []
   - m_Id: 32564379648
     m_Key: btn_confirm
     m_Metadata:
