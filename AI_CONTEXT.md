@@ -24,7 +24,7 @@
 
 ## Workflow
 1. Claude analyzes the task and relevant code.
-2. Claude creates a specification under Documentation/AI/Tasks/.
+2. Claude creates a specification under Docs/AI/Tasks/.
 3. Codex implements the specification.
 4. Codex reports changes and actual test results.
 5. Claude reviews the actual diff and implementation.
