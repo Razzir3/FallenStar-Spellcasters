@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -185,53 +186,33 @@ public partial class GameMaster
         {
             case GamePhase.CardSelection:
                 {
-                    HandleConfirmSelectionTurn(playerSession, playCardNetworkIds, discardCardNetworkIds);
+                    if (!HandleConfirmSelectionTurn(playerSession, playCardNetworkIds, discardCardNetworkIds,
+                            out PlayerTurnSelection turnSelections))
+                    {
+                        return;
+                    }
 
                     playerSession.m_boardPlayCards.Clear();
                     playerSession.m_boardDiscardCards.Clear();
 
-                    foreach (ulong cardNetworkObjectId in playCardNetworkIds)
+                    foreach (NetworkCard card in turnSelections.m_cardsToPlay)
                     {
-                        NetworkCard card = GetCardByID(cardNetworkObjectId);
-
-                        if (card == null)
-                            continue;
-
-                        if (card.m_cardData == null)
-                        {
-                            Debug.LogWarning($"CardData is null for play card " + $"{cardNetworkObjectId}.");
-
-                            continue;
-                        }
-
                         card.SetLocation(CardLocation.Board);
                         card.m_isRotated.Value = false;
 
                         SendCardDataClientRpc(card.NetworkObjectId, card.m_cardData.m_cardId);
 
-                        playerSession.m_boardPlayCards.Add(cardNetworkObjectId);
+                        playerSession.m_boardPlayCards.Add(card.NetworkObjectId);
                     }
 
-                    foreach (ulong cardNetworkObjectId in discardCardNetworkIds)
+                    foreach (NetworkCard card in turnSelections.m_cardToDiscard)
                     {
-                        NetworkCard card = GetCardByID(cardNetworkObjectId);
-
-                        if (card == null)
-                            continue;
-
-                        if (card.m_cardData == null)
-                        {
-                            Debug.LogWarning($"CardData is null for discard card " + $"{cardNetworkObjectId}.");
-
-                            continue;
-                        }
-
                         card.SetLocation(CardLocation.Board);
                         card.m_isRotated.Value = true;
 
                         SendCardDataClientRpc(card.NetworkObjectId, card.m_cardData.m_cardId);
 
-                        playerSession.m_boardDiscardCards.Add(cardNetworkObjectId);
+                        playerSession.m_boardDiscardCards.Add(card.NetworkObjectId);
                     }
 
                     break;
@@ -320,50 +301,71 @@ public partial class GameMaster
     /// <param name="session"></param>
     /// <param name="playCardNetworkId"></param>
     /// <param name="discardCardNetworkId"></param>
-    private void HandleConfirmSelectionTurn(PlayerSession session, ulong[] playCardNetworkId, ulong[] discardCardNetworkId)
+    /// <param name="turnSelections">The accepted card selection for this session.</param>
+    /// <returns>True if this is the session's first confirmation in this selection phase.</returns>
+    private bool HandleConfirmSelectionTurn(PlayerSession session, ulong[] playCardNetworkId, ulong[] discardCardNetworkId,
+                                           out PlayerTurnSelection turnSelections)
     {
 
-        if (!m_turnSelections.TryGetValue(session, out var turnSelections))
+        if (!m_turnSelections.TryGetValue(session, out turnSelections))
         {
             Debug.LogWarning("No selection found for session");
-            return;
+            return false;
         }
 
         if (turnSelections.m_isConfirmed)
         {
             if (m_debugMode) Debug.Log("Selection already confirmed");
-            return;
+            return false;
         }
 
         turnSelections.m_cardsToPlay.Clear();
         turnSelections.m_cardToDiscard.Clear();
 
-        foreach (ulong cardId in playCardNetworkId)
-        {
-            NetworkCard _card = GetCardByID(cardId);
-            if (_card == null) continue;
+        HashSet<ulong> usedIds = new();
+        List<ulong> rejectedIds = new();
 
-            if (ValidateCardOwner(_card, session))
-            {
-                turnSelections.m_cardsToPlay.Add(_card);
-            }
-        }
-        foreach (ulong cardId in discardCardNetworkId)
-        {
-            NetworkCard _card = GetCardByID(cardId);
-            if (_card == null) continue;
-
-            if (ValidateCardOwner(_card, session))
-            {
-                turnSelections.m_cardToDiscard.Add(_card);
-            }
-        }
+        ValidateSelectionCards(session, playCardNetworkId, turnSelections.m_cardsToPlay, usedIds, rejectedIds);
+        ValidateSelectionCards(session, discardCardNetworkId, turnSelections.m_cardToDiscard, usedIds, rejectedIds);
 
         turnSelections.m_isConfirmed = true;
+
+        if (rejectedIds.Count > 0)
+        {
+            Debug.LogWarning($"Card selection rejected IDs for player {session.OwnerClientId}: {string.Join(", ", rejectedIds)}.");
+        }
 
         if (m_debugMode)
         {
             Debug.Log($"Player {session.OwnerClientId} confirmed card selection. Cost: {turnSelections.TotalCost()}");
+        }
+
+        return true;
+    }
+
+    private void ValidateSelectionCards(PlayerSession session, ulong[] cardNetworkIds, List<NetworkCard> acceptedCards,
+                                        HashSet<ulong> usedIds, List<ulong> rejectedIds)
+    {
+        if (cardNetworkIds == null)
+            return;
+
+        foreach (ulong cardId in cardNetworkIds)
+        {
+            if (cardId == 0 || usedIds.Contains(cardId) || !ContainsNetworkObjectId(session.m_handCards, cardId))
+            {
+                rejectedIds.Add(cardId);
+                continue;
+            }
+
+            NetworkCard _card = GetCardByID(cardId);
+            if (_card == null || _card.m_ownerId.Value != session.NetworkObjectId || _card.m_cardData == null)
+            {
+                rejectedIds.Add(cardId);
+                continue;
+            }
+
+            usedIds.Add(cardId);
+            acceptedCards.Add(_card);
         }
     }
     /// <summary>
@@ -439,7 +441,11 @@ public partial class GameMaster
     /// <returns></returns>
     private bool ValidateCardOwner(NetworkCard card, PlayerSession session)
     {
-        return (session.TeamId.Value == GetSessionByID(card.m_ownerId.Value).TeamId.Value);
+        if (card == null || session == null)
+            return false;
+
+        PlayerSession _ownerSession = GetSessionByID(card.m_ownerId.Value);
+        return _ownerSession != null && session.TeamId.Value == _ownerSession.TeamId.Value;
     }
     /// <summary>
     /// Validates if the respawn block is valid for the player. This method checks if the block is spawned, belongs to the same team as the player, and has a valid spawn point.
