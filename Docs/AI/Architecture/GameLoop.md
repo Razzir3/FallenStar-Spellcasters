@@ -107,17 +107,25 @@ GameLoop()  (GameLoop.cs:44)
 - `StartNewGame` initializes both spawned sessions after the two-player check: capacity = `Clamp(m_baseMana, 0, m_maxMana)` and current = capacity. Defaults are base 2, growth step 2, cap 20.
 - At the start of `RoundBreakPhase`, after assigning `GamePhase.RoundBreak`, the server calls `ApplyRoundManaGrowth` for each player. Round one only refills; later rounds increase capacity by the step up to the cap, then refill current to capacity. The local first-round flag resets on each new `GameLoop`.
 - `ApplyRoundManaGrowth` is the single extension point for changing the round-growth/refill model. `AddMana(player, delta)` is a server-only helper for later spending/effects, clamped to `[0, capacity]`.
-- `PlayerSession.m_manaCapacity` and `m_manaCurrent` are server-written NetworkVariables readable by everyone. Mana is not written in `PlayerSession.Initialize`; turn order is unchanged. Selection spending is described below; mana display belongs to MANA3.
+- `PlayerSession.m_manaCapacity` and `m_manaCurrent` are server-written NetworkVariables readable by everyone. Mana is not written in `PlayerSession.Initialize`; turn order is unchanged. Selection spending and mana display are described below.
 - These paths were checked statically; host/client replication and round progression still require Play Mode verification.
 
 ### Mana validation at selection confirm (MANA2)
 
 - The client refuses additional play cards whose combined cost exceeds current mana, and refuses cards whose data has not arrived. Deselection and free discards keep their existing behavior.
 - The server first filters card IDs using the existing ownership, hand and duplicate checks, still recording invalid IDs. It then checks only the accepted play-card cost. A valid first confirm spends that cost through `AddMana` and marks the selection confirmed before the caller writes the board. Later confirms are ignored.
-- An over-budget confirm leaves mana and board unchanged, clears both server selection lists, remains unconfirmed and records `ManaOverBudget`. The owner-targeted `SelectionRejectedClientRpc` clears local selection/target state and UI highlights. The localized message is deferred to MANA3.
+- An over-budget confirm leaves mana and board unchanged, clears both server selection lists, remains unconfirmed and records `ManaOverBudget`. The owner-targeted `SelectionRejectedClientRpc` clears local selection/target state and UI highlights, and triggers the MANA3 localized message.
 - Rejection resets the shared selection timer to zero only while both per-player limits permit it: one reset per selection phase and three per match by default. Phase counters clear in `CardSelectionPhase`; match counters clear in `StartNewGame`. Further over-budget attempts still reject and record suspicion without resetting the timer.
 - Selection still ends only after both valid confirms or timeout. A player without a valid confirm plays nothing and spends nothing. Turn order still includes both play and discard costs; casting is unchanged.
 - Thirty focused local-host Play Mode assertions passed for gating, spending, rejection, owner-side clearing, timer limits, valid retries and timeout behavior. Remote-peer rejection delivery and full-match behavior still require verification.
+
+### Mana display and rejection feedback (MANA3)
+
+- `PlayerUI` displays local and opponent mana as current / capacity. It resolves the opponent through the local session's `m_currentOponentNetworkObjectId` and `GameMaster.GetSessionByID`; an unavailable opponent clears that label.
+- Each mana label caches its last two integer values, formatting only when they change. Locale changes invalidate the caches so labels refresh even when mana is unchanged. Polling runs independently of character existence, including respawn waits.
+- `OnSelectionRejected` calls `ShowManaNotEnough`. The message uses `UI_table.mana_not_enough` and expires after two unscaled seconds by default; repeated rejections restart the deadline. An active message also refreshes on locale change.
+- `ClearLocalUI` empties all three texts, invalidates the caches and cancels the message deadline. Locale subscriptions follow `OnEnable`/`OnDisable`.
+- `PlayerUIPrefab` contains three added TMP texts using the existing MPLUSRounded1c font, with serialized field and localization references. `label_mana_capacity`, `label_mana_opponent` and `mana_not_enough` are present in English, Russian and Japanese. Optional local click feedback was not added.
 
 ### 3.1 PlayerActionPhase (`GameLoop.cs:91`) [Confirmed]
 Each frame, until timeout or `m_activePlayerConfirmedAction` with an empty queue:

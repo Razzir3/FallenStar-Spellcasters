@@ -15,6 +15,18 @@ MonoBehaviour:
   m_TableCollectionName: UI_table
   m_TableCollectionNameGuidString: 5f329d5350a5fd44e86607395a0dd117
   m_Entries:
+  - m_Id: 49726419487227904
+    m_Key: label_mana_capacity
+    m_Metadata:
+      m_Items: []
+  - m_Id: 49727086813577216
+    m_Key: label_mana_opponent
+    m_Metadata:
+      m_Items: []
+  - m_Id: 49727086813577217
+    m_Key: mana_not_enough
+    m_Metadata:
+      m_Items: []
   - m_Id: 49717325267271680
     m_Key: result_title_win
     m_Metadata:

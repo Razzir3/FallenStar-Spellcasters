@@ -188,8 +188,6 @@ public class PlayerSession : NetworkBehaviour
         {
             PlayerUI.Instance.OnSelectionRejected();
         }
-
-        //Todo MANA3: show the localized not-enough-mana message.
     }
 
     private ulong[] ConvertCardsToNetworkId(List<NetworkCard> cards)

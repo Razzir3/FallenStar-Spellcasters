@@ -5,6 +5,7 @@ using Unity.Netcode;
 using UnityEngine;
 using System.Collections.Generic;
 using UnityEngine.Localization;
+using UnityEngine.Localization.Settings;
 
 public enum CardViewType
 {
@@ -22,14 +23,26 @@ public class PlayerUI : NetworkBehaviour
 
     public TMP_Text m_hpText;
     public TMP_Text m_lifeText;
+    public TMP_Text m_manaText;
+    public TMP_Text m_opponentManaText;
+    public TMP_Text m_messageText;
 
     [SerializeField] private LocalizedString m_labelHp;
     [SerializeField] private LocalizedString m_labelLife;
+    [SerializeField] private LocalizedString m_labelMana;
+    [SerializeField] private LocalizedString m_labelOpponentMana;
+    [SerializeField] private LocalizedString m_manaNotEnoughText;
+    [SerializeField] private float m_messageDuration = 2f;
     [SerializeField] private LocalizedString m_playerDeadText;
     [SerializeField] private LocalizedString m_phaseAnouncementText;
 
     private int m_hp;
     private int m_life;
+    private int m_manaCurrent = -1;
+    private int m_manaCapacity = -1;
+    private int m_opponentManaCurrent = -1;
+    private int m_opponentManaCapacity = -1;
+    private float m_messageHideTime = -1f;
 
     private PlayerSession m_playerSession;
     
@@ -69,6 +82,13 @@ public class PlayerUI : NetworkBehaviour
     // Update is called once per frame
     void Update()
     {
+        if (m_messageHideTime >= 0f && Time.unscaledTime >= m_messageHideTime)
+        {
+            if (m_messageText != null)
+                m_messageText.text = "";
+            m_messageHideTime = -1f;
+        }
+
         if ((GameMaster.Instance == null))
         {
             return;
@@ -109,6 +129,7 @@ public class PlayerUI : NetworkBehaviour
 
             UpdateCards(default);
         }
+        UpdateManaTexts();
         if (m_playerSession.m_lifeCurrent.Value<0)
         {
             m_hpText.text = m_playerDeadText.GetLocalizedString();
@@ -124,6 +145,65 @@ public class PlayerUI : NetworkBehaviour
             m_hpText.text = m_labelHp.GetLocalizedString(m_hp);
             m_lifeText.text = m_labelLife.GetLocalizedString(m_life);
         }
+    }
+
+    private void UpdateManaTexts()
+    {
+        int _current = m_playerSession.m_manaCurrent.Value;
+        int _capacity = m_playerSession.m_manaCapacity.Value;
+        if (m_manaText != null && (_current != m_manaCurrent || _capacity != m_manaCapacity))
+        {
+            m_manaText.text = m_labelMana.GetLocalizedString(_current, _capacity);
+            m_manaCurrent = _current;
+            m_manaCapacity = _capacity;
+        }
+
+        PlayerSession _opponent = null;
+        if (GameMaster.Instance != null && NetworkManager.Singleton != null &&
+            NetworkManager.Singleton.SpawnManager != null)
+        {
+            _opponent = GameMaster.Instance.GetSessionByID(m_playerSession.m_currentOponentNetworkObjectId.Value);
+        }
+
+        if (_opponent == null)
+        {
+            if (m_opponentManaText != null && m_opponentManaText.text.Length > 0)
+                m_opponentManaText.text = "";
+            m_opponentManaCurrent = m_opponentManaCapacity = -1;
+            return;
+        }
+
+        _current = _opponent.m_manaCurrent.Value;
+        _capacity = _opponent.m_manaCapacity.Value;
+        if (m_opponentManaText != null &&
+            (_current != m_opponentManaCurrent || _capacity != m_opponentManaCapacity))
+        {
+            m_opponentManaText.text = m_labelOpponentMana.GetLocalizedString(_current, _capacity);
+            m_opponentManaCurrent = _current;
+            m_opponentManaCapacity = _capacity;
+        }
+    }
+
+    private void ResetManaTextCache()
+    {
+        m_manaCurrent = m_manaCapacity = -1;
+        m_opponentManaCurrent = m_opponentManaCapacity = -1;
+    }
+
+    private void OnSelectedLocaleChanged(Locale locale)
+    {
+        ResetManaTextCache();
+        if (m_messageHideTime > Time.unscaledTime && m_messageText != null)
+            m_messageText.text = m_manaNotEnoughText.GetLocalizedString();
+    }
+
+    public void ShowManaNotEnough()
+    {
+        if (m_messageText == null)
+            return;
+
+        m_messageText.text = m_manaNotEnoughText.GetLocalizedString();
+        m_messageHideTime = Time.unscaledTime + Mathf.Max(0f, m_messageDuration);
     }
     private void OnGamePhaseChanged(
     GamePhase previousValue,
@@ -321,6 +401,8 @@ public class PlayerUI : NetworkBehaviour
                 cardView.ClearSelectedColor();
             }
         }
+
+        ShowManaNotEnough();
     }
 
     public void ClearSelectedCard()
@@ -375,6 +457,8 @@ public class PlayerUI : NetworkBehaviour
     }
     private void OnEnable()
     {
+        ResetManaTextCache();
+        LocalizationSettings.SelectedLocaleChanged += OnSelectedLocaleChanged;
         if (NetworkManager.Singleton != null)
         {
             NetworkManager.Singleton.OnClientDisconnectCallback += OnClientDisconnected;
@@ -384,6 +468,7 @@ public class PlayerUI : NetworkBehaviour
 
     private void OnDisable()
     {
+        LocalizationSettings.SelectedLocaleChanged -= OnSelectedLocaleChanged;
         if (NetworkManager.Singleton != null)
         {
             NetworkManager.Singleton.OnClientDisconnectCallback -= OnClientDisconnected;
@@ -437,6 +522,15 @@ public class PlayerUI : NetworkBehaviour
 
         if (m_lifeText != null)
             m_lifeText.text = "";
+
+        if (m_manaText != null)
+            m_manaText.text = "";
+        if (m_opponentManaText != null)
+            m_opponentManaText.text = "";
+        if (m_messageText != null)
+            m_messageText.text = "";
+        ResetManaTextCache();
+        m_messageHideTime = -1f;
 
         m_selectedNetworkCard = null;
         m_selectedCardView = null;

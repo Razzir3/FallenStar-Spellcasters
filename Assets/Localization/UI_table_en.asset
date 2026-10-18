@@ -249,6 +249,18 @@ MonoBehaviour:
     m_Localized: Main menu
     m_Metadata:
       m_Items: []
+  - m_Id: 49726419487227904
+    m_Localized: 'Mana : {0} / {1}'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 49727086813577216
+    m_Localized: 'Opponent mana : {0} / {1}'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 49727086813577217
+    m_Localized: Not enough mana
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds:
