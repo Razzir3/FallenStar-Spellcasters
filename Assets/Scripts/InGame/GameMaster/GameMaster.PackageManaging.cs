@@ -133,6 +133,16 @@ public partial class GameMaster
                     $"Card package rejected. " +
                     $"Wrong card owner.");
 
+                if (SessionManager.Instance != null)
+                {
+                    PlayerSession _senderSession = SessionManager.Instance.GetPlayerSession(senderClientId);
+                    if (_senderSession != null)
+                    {
+                        _senderSession.ReportSuspicious(SuspiciousActionType.ForeignCardPackage,
+                            $"Card {_card.NetworkObjectId} belongs to session {_card.m_ownerId.Value}.");
+                    }
+                }
+
                 return false;
             }
 
@@ -179,6 +189,15 @@ public partial class GameMaster
         if (playerSession.OwnerClientId != senderClientId)
         {
             Debug.LogWarning("Suspect Activity");
+            if (SessionManager.Instance != null)
+            {
+                PlayerSession _senderSession = SessionManager.Instance.GetPlayerSession(senderClientId);
+                if (_senderSession != null)
+                {
+                    _senderSession.ReportSuspicious(SuspiciousActionType.RpcSenderMismatch,
+                        $"Confirm sender {senderClientId} does not own session {playerSession.NetworkObjectId}.");
+                }
+            }
             return;
         }
 
@@ -333,6 +352,8 @@ public partial class GameMaster
         if (rejectedIds.Count > 0)
         {
             Debug.LogWarning($"Card selection rejected IDs for player {session.OwnerClientId}: {string.Join(", ", rejectedIds)}.");
+            session.ReportSuspicious(SuspiciousActionType.InvalidCardSelection,
+                $"Rejected card IDs: {string.Join(", ", rejectedIds)}.");
         }
 
         if (m_debugMode)

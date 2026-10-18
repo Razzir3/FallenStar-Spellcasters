@@ -18,6 +18,8 @@ public interface ISelectable
 
 public class PlayerSession : NetworkBehaviour
 {
+    private readonly SuspiciousActivityLog m_suspiciousLog = new();
+
     private Camera m_camera;
     private GameObject m_currentSelect;
     private PlayerController m_currentSelectedCharacter;
@@ -64,6 +66,26 @@ public class PlayerSession : NetworkBehaviour
     private void Awake()
     {
         m_camera = Camera.main;
+    }
+
+    public void ReportSuspicious(SuspiciousActionType type, string detail)
+    {
+        if (!IsServer)
+            return;
+
+        GamePhase phase = GameMaster.Instance != null
+            ? GameMaster.Instance.m_gamePhase.Value
+            : GamePhase.None;
+        m_suspiciousLog.Record(type, phase, detail);
+        Debug.LogWarning($"[Suspicious] client {OwnerClientId} {type}: {detail}");
+    }
+
+    /// <summary>
+    /// Returns the server-only activity log. Entries are not replicated to clients.
+    /// </summary>
+    public SuspiciousActivityLog GetSuspiciousLog()
+    {
+        return m_suspiciousLog;
     }
 
     private bool TryPrepareSelectionReferences()

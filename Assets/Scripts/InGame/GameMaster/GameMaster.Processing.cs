@@ -94,13 +94,13 @@ public partial class GameMaster
     {
         bool _result = false;
         var _ownerPlayer = GetSessionByID(cardOwnerId);
-        var _ownerPlayerOponent = GetSessionByID(_ownerPlayer.m_currentOponentNetworkObjectId.Value);
 
         if (_ownerPlayer == null)
         {
             Debug.LogError("No owner");
             return false;
         }
+        var _ownerPlayerOponent = GetSessionByID(_ownerPlayer.m_currentOponentNetworkObjectId.Value);
         PlayerController _targetCharacter = null;
         var _targetSession = GetSessionByID(targetID);
         if (_targetSession != null)
@@ -128,18 +128,12 @@ public partial class GameMaster
                 if (_targetBlock != null) _result = true;
                 break;
             case CardTargetType.OpponentBlock:
-                if (_targetBlock != null)
-                {
-                    if (_targetBlock.m_teamId.Value == _ownerPlayerOponent.TeamId.Value)
-                    {
-                        _result = true;
-                    }
-                    else break;
-                }
-                _result = true;
+                _result = _targetBlock != null && _ownerPlayerOponent != null &&
+                    _targetBlock.m_teamId.Value == _ownerPlayerOponent.TeamId.Value;
                 break;
             case CardTargetType.OpponentPlayer:
-                if (_ownerPlayerOponent.GetCharacter() == _targetCharacter)
+                if (_targetCharacter != null && _ownerPlayerOponent != null &&
+                    _ownerPlayerOponent.GetCharacter() == _targetCharacter)
                 {
                     _result = true;
                 }
@@ -149,18 +143,11 @@ public partial class GameMaster
                 }
                 break;
             case CardTargetType.SelfBlock:
-                if (_targetBlock != null)
-                {
-                    if (_targetBlock.m_teamId.Value == _ownerPlayer.TeamId.Value)
-                    {
-                        _result = true;
-                    }
-                    else break;
-                }
-                _result = true;
+                _result = _targetBlock != null &&
+                    _targetBlock.m_teamId.Value == _ownerPlayer.TeamId.Value;
                 break;
             case CardTargetType.SelfPlayer:
-                if (_ownerPlayer.GetCharacter() == _targetCharacter)
+                if (_targetCharacter != null && _ownerPlayer.GetCharacter() == _targetCharacter)
                 {
                     _result = true;
                 }

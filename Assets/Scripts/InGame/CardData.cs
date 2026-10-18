@@ -91,20 +91,18 @@
 
         private void OnValidate()
         {
-            if(m_activities == null || m_activities.Length != 4)
+            if (m_activities == null)
             {
                 m_activities = new CardActivity[4];
             }
-
-            for(int i = 1;i<=3;i++)
+            else if (m_activities.Length != 4)
             {
-                m_activities[i] = new CardActivity
-                {
-                    s_actionType = CardActionType.None,
-                    s_targetType = CardTargetType.None,
-                    s_value = 0,
-                    s_effect = ActivityEffect.None
-                };
+                System.Array.Resize(ref m_activities, 4);
             }
+        }
+
+        private void Reset()
+        {
+            m_activities = new CardActivity[4];
         }
     }

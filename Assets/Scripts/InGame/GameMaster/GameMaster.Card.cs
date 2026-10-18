@@ -259,7 +259,6 @@ public partial class GameMaster
                         break;
                     case CardRarity.UltraRare:
                         maxCard = 2;
-                        _nonUniqueList[i] = uniqueList[_randomSeed];
                         break;
                     case CardRarity.Unique:
                         maxCard = 1;

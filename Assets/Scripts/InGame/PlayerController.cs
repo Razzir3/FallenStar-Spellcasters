@@ -241,6 +241,15 @@ using UnityEngine.InputSystem;
                 if (_senderClientId != OwnerClientId)
                 {
                     Debug.LogWarning("Suspect Activity");
+                    if (SessionManager.Instance != null)
+                    {
+                        PlayerSession _senderSession = SessionManager.Instance.GetPlayerSession(_senderClientId);
+                        if (_senderSession != null)
+                        {
+                            _senderSession.ReportSuspicious(SuspiciousActionType.RpcSenderMismatch,
+                                $"Movement sender {_senderClientId} does not own player {OwnerClientId}.");
+                        }
+                    }
                     return;
                 }
 

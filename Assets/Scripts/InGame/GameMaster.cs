@@ -421,6 +421,17 @@ public partial class GameMaster : NetworkBehaviour
         if (m_debugMode)
         {
             Debug.Log($"GameMaster: match ended. Winner: {winnerClientId}. Reason: {reason}");
+            foreach (PlayerSession player in m_players)
+            {
+                if (player == null)
+                    continue;
+
+                SuspiciousActivityLog suspiciousLog = player.GetSuspiciousLog();
+                if (suspiciousLog.Total > 0)
+                {
+                    Debug.Log($"[Suspicious] client {player.OwnerClientId} match summary: {suspiciousLog.ToSummaryString()}");
+                }
+            }
         }
 
         MatchEndedClientRpc(winnerClientId, reason);
@@ -448,6 +459,21 @@ public partial class GameMaster : NetworkBehaviour
         m_gamePhase.Value = GamePhase.None;
 
         Debug.LogError("GameMaster: match aborted. Reason: " + reason);
+
+        if (m_debugMode)
+        {
+            foreach (PlayerSession player in m_players)
+            {
+                if (player == null)
+                    continue;
+
+                SuspiciousActivityLog suspiciousLog = player.GetSuspiciousLog();
+                if (suspiciousLog.Total > 0)
+                {
+                    Debug.Log($"[Suspicious] client {player.OwnerClientId} match summary: {suspiciousLog.ToSummaryString()}");
+                }
+            }
+        }
 
         if (MultiplayerManager.Instance != null)
         {
