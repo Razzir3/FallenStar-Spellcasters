@@ -230,11 +230,21 @@ using UnityEngine.InputSystem;
 
     }
         [ServerRpc]
-        public void InputServerRpc(PlayerControlPackage _package)
+        public void InputServerRpc(PlayerControlPackage _package, ServerRpcParams rpcParams = default)
         {
             try
             {
                 if (m_debugMode) Debug.Log("RPC CALLED");
+
+                ulong _senderClientId = rpcParams.Receive.SenderClientId;
+
+                if (_senderClientId != OwnerClientId)
+                {
+                    Debug.LogWarning("Suspect Activity");
+                    return;
+                }
+
+                _package.ClientId = _senderClientId;
 
                 if (GameMaster.Instance == null)
                 {
