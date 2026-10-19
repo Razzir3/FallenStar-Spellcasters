@@ -116,7 +116,7 @@ graph TD
 | `GameMaster` → `PlayerUI` / `CardWorldViewManager` | `PlayerUI.Instance.ClearLocalUI()`, `CardWorldViewManager.Instance.ClearAllWorldViews()/RefreshAllSessions()` | `ClearupAfterDisconnect`, `SendCardDataClientRpc` (**server rules → client UI**) |
 | `GameMaster` → `PlayerSession` | the NetworkLists, `m_lifeCurrent`, `TeamId`, `GetCharacter/SetCharacter`, `SetSpawnPoint`, `AddBlock/DeleteBlock`, `ClearSession`, `SetOponent`, `AddCard` | throughout |
 | `GameMaster` → `PlayerController` | `m_hpCurrent/m_hpMax`, `GetRigidbody`, `Initialize`, `SessionObjectId` | `Processing.cs`, `Spawn.cs` |
-| `GameMaster` → `BlockController` | `m_blockHP`, `m_teamId`, `GetSpawn`, `GetSession`, `Initialize` | `Processing.cs`, `Spawn.cs`, `GameLoop.cs` |
+| `GameMaster` → `BlockController` | `m_blockHP`, `m_teamId`, `GetSpawn`, `GetSession`, `GetMaxHP`, `Initialize` | `Processing.cs`, `Spawn.cs`, `GameLoop.cs`; `GetMaxHP` reads the server-only maximum retained by `Initialize` (H3) |
 | `GameMaster` → `NetworkCard` | `m_cardData`, `m_ownerId`, `SetOwner`, `SetLocation`, `m_isRotated`, `m_isFaceUp`, `RepairCardData` | `Card.cs`, `PackageManaging.cs` |
 | `PlayerSession` → `GameMaster` | `CanPlayerSelectCards/Targets`, `m_gamePhase`, `IsWaitingRespawnPlayer`, `GetSessionByID`, `HandleConfirmTurn`, `HandleCardControlPackage` | `PlayerSession.cs` |
 | `PlayerSession` → `SessionManager` | sets `LocalPlayer` | `RegisterLocalPlayerWhenReady` |
@@ -166,7 +166,7 @@ graph TD
 | `SessionManager` | In-scene NetworkObject in `GameScene` | Scene unload | `Instance` is set in `Awake`, **never cleared** in `OnDestroy`. [Risk] It can hold a stale reference after leaving `GameScene`. `MultiplayerManager.CleanupAfterDisconnect` calls it before loading the lobby. |
 | `PlayerSession` | `SessionManager.CreateSession` per client | `SessionManager.OnClientDisconnected` (`Despawn`), or `ClearSessionOnDisconnect` | `LocalPlayer` is set by the owner coroutine. `GameMaster.m_players` is not updated on despawn. |
 | Character / blocks | `GameMaster.SpawnPlayers` / `RespawnCharacter` | Death (`DespawnCharacter`), block HP 0, `PlayerSession.ClearSession` | Client-owned: NGO destroys them when the owner disconnects, unless `DontDestroyWithOwner` is set. **[Unknown]** That flag was not inspected. |
-| Cards (~80) | `CreateDeck` at `StartNewGame` | `DespawnAllCards` (next `StartNewGame` / cleanup), `PlayerSession.ClearHand` | `ClearView` on despawn destroys the UI/world views |
+| Cards (84 with today's Common-only database) | `CreateDeck` at `StartNewGame` and server `RefillDeck` on exhaustion | Graveyard cards: `RefillDeck` despawns/destroys and untracks them before deck creation; other cleanup: `DespawnAllCards`, `PlayerSession.ClearHand` | Hand/board cards survive refills. Refill rarity ceiling defaults to Rare; initial ceiling is Unique. `ClearView` on despawn destroys the UI/world views. |
 | `PlayerUI` | In-scene NB in `GameScene` | Scene unload | Re-binds lazily in `Update`. Subscribes to `NetworkManager` callbacks in `OnEnable`. |
 | `CardWorldViewManager` | `GameScene` | Scene unload (`OnDestroy` → unsubscribe, clear views) | Re-registers when `m_playerSessions.Count` changes (polled in `Update`) |
 

@@ -17,6 +17,8 @@ public class BlockController : NetworkBehaviour, ISelectable
     private bool m_setSelected = false;
 
     private PlayerSession m_ownerSession = null;
+    // Server-only maximum, like m_ownerSession; clients only need current HP.
+    private int m_blockHPMax = 100;
 
     public NetworkVariable<int> TeamId = new NetworkVariable<int>();
 
@@ -56,6 +58,7 @@ public class BlockController : NetworkBehaviour, ISelectable
 
         m_teamId.Value = session.TeamId.Value;
 
+        m_blockHPMax = hpmax;
         m_blockHP.Value = hpmax;
 
         if(m_blockHP.Value<0)
@@ -91,6 +94,10 @@ public class BlockController : NetworkBehaviour, ISelectable
     public PlayerSession GetSession()
     {
         return m_ownerSession;
+    }
+    public int GetMaxHP()
+    {
+        return m_blockHPMax;
     }
     public SpawnPoint GetSpawn()
     {

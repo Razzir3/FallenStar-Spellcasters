@@ -148,12 +148,30 @@ public partial class GameMaster
     /// <param name="session">The player session for which to draw a card.</param>
     private void DrawCard(PlayerSession session)
     {
-        var card = m_deck.ElementAt(0);
-        if (card == null)
+        if (session == null)
+        {
+            Debug.LogWarning("Cannot draw card: player session is null.");
+            return;
+        }
+
+        while (m_deck.Count > 0 && m_deck[0] == null)
+            m_deck.RemoveAt(0);
+
+        if (m_deck.Count == 0)
+        {
+            RefillDeck();
+
+            while (m_deck.Count > 0 && m_deck[0] == null)
+                m_deck.RemoveAt(0);
+        }
+
+        if (m_deck.Count == 0)
         {
             Debug.LogWarning("No card to draw");
             return;
         }
+
+        var card = m_deck[0];
 
         session.AddCard(card);
 
@@ -167,9 +185,40 @@ public partial class GameMaster
             Debug.Log("Draw");
     }
     /// <summary>
+    /// Deletes the old graveyard before creating a new deck with the configured rarity limit.
+    /// </summary>
+    private void RefillDeck()
+    {
+        if (!IsServer)
+            return;
+
+        foreach (NetworkCard card in m_graveyard)
+        {
+            if (card == null)
+                continue;
+
+            if (card.NetworkObject != null && card.NetworkObject.IsSpawned)
+                card.NetworkObject.Despawn(true);
+            else
+                Destroy(card.gameObject);
+
+            m_spawnedCards.Remove(card);
+        }
+
+        m_graveyard.Clear();
+
+        CreateDeck(m_refillDeckMaxRarity);
+
+        if (m_debugMode)
+            Debug.Log($"Deck refilled: {m_deck.Count} cards.");
+
+        if (m_deck.Count == 0)
+            Debug.LogWarning("Refill deck is empty.");
+    }
+    /// <summary>
     /// Creates a deck of cards by randomly selecting cards from the card database based on specified maximum counts for different card types (Attack, Defence, Draw Card). The deck is then shuffled.
     /// </summary>
-    private void CreateDeck()
+    private void CreateDeck(CardRarity maxRarity = CardRarity.Unique)
     {
         m_deck.Clear();
         int _randomSeed = Random.Range(0, 2);
@@ -208,6 +257,9 @@ public partial class GameMaster
 
         foreach (var card in m_cardDatabase.m_cards)
         {
+            if (card == null || card.m_rarity > maxRarity)
+                continue;
+
             switch (card.m_specialSpecialization)
             {
                 case CardSpecialization.AttackSpell:

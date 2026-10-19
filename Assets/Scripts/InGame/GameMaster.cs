@@ -80,6 +80,7 @@ public partial class GameMaster : NetworkBehaviour
     [SerializeField] private int m_baseMana = 2;
     [SerializeField] private int m_manaGrowthStep = 2;
     [SerializeField] private int m_maxMana = 20;
+    [SerializeField] private CardRarity m_refillDeckMaxRarity = CardRarity.Rare;
     [SerializeField] private int m_maxSelectionTimerResetsPerPhase = 1;
     [SerializeField] private int m_maxSelectionTimerResetsPerMatch = 3;
 

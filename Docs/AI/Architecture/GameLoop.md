@@ -102,6 +102,14 @@ GameLoop()  (GameLoop.cs:44)
  Debug.LogError("Game finished. You won/lost")   ← end of match (server log only)
 ```
 
+### Deck exhaustion and refill (H2, 2026-10-19)
+
+- `DrawCardPhase` and DrawCard activities share `DrawCard`. It rejects a null session before modifying cards and removes null entries at the front of the deck.
+- An empty deck calls server-only `RefillDeck` once per draw. The server first despawns spawned graveyard cards with destruction enabled, destroys unspawned graveyard objects, removes those cards from `m_spawnedCards` and clears the graveyard. It then calls `CreateDeck(m_refillDeckMaxRarity)` (default `Rare`). Cards in hands and on boards are retained.
+- `CreateDeck` skips null database entries and rarities above its optional limit; the default `Unique` preserves the initial deck. Section limits, copy batches, spawn path and shuffle remain unchanged.
+- A still-empty deck logs a warning and returns without drawing. A successful draw keeps the existing hand assignment, ownership and owner-targeted identity RPC. No new phase or yield is introduced.
+- Isolated source checks passed for refill ordering, rarity ceilings, repeated cleanup, owner-targeted draws and empty pools. Actual network spawn/despawn replication and UI behavior still require host/client Play Mode checks.
+
 ### Mana at match start and RoundBreak (MANA1, 2026-10-19)
 
 - `StartNewGame` initializes both spawned sessions after the two-player check: capacity = `Clamp(m_baseMana, 0, m_maxMana)` and current = capacity. Defaults are base 2, growth step 2, cap 20.
@@ -202,8 +210,8 @@ These are documented, not fixed. Each needs separate verification.
 | # | Risk | Location | Consequence |
 |---|---|---|---|
 | L1 | Any exception inside the coroutine stops `GameLoop` permanently | the coroutine as a whole | Match freezes with no recovery |
-| L2 | `DrawCard` uses `m_deck.ElementAt(0)` with no empty check, and the graveyard is never recycled | `GameMaster.Card.cs:151` | L1 once the deck (~80 cards) is exhausted |
-| L3 | Block heal uses `_targetCharacter.m_hpMax` (null for a block target) | `Processing.cs:209` | NRE leads to L1 when a heal targets a block. No current card does this. |
+| L2 | Resolved by H2 (2026-10-19): empty decks refill once per draw after graveyard deletion; empty filtered pools warn and return | `GameMaster.Card.cs` | Default refill excludes UltraRare/Unique; initial deck and section/copy rules are unchanged. |
+| L3 | Resolved by H3 (2026-10-19): block heal uses its server-only `GetMaxHP()` and the character overflow formula/conversion | `Processing.cs`, `BlockController.cs` | No character reference or hard-coded maximum remains in the block heal branch. |
 | L4 | `CheckActivity` dereferences `_ownerPlayer` before its null check | `Processing.cs:69` | NRE leads to L1 |
 | L5 | `FillCardSection` writes `_nonUniqueList[i]` on a possibly empty list for `UltraRare` | `Card.cs:262` | `StartNewGame` throws once an UltraRare card exists. No current card is UltraRare. |
 | L6 | `WaitForRespawnIfNeeded` resets the shared `m_timer` inside `PlayerActionPhase` | `GameLoop.cs:530` | The active player's turn timer is altered after a respawn |

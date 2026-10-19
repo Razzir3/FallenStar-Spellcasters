@@ -153,8 +153,9 @@ Card data, from `CardData.cs` and the `Assets/Card/Data/*.asset` files:
 - **[Unfinished]** All `DiscardCard*` / `DrawCard*` combo action types are empty `case`s. Target types `All*` / `Random*` pass validation in `CheckActivity`, but `ProcessActivity` does nothing for them. `ActivityEffect` (Fire1/Frost1) is never read.
 - **[Risk]** `CardData.OnValidate` overwrites activities 1–3 with `None` on every validation, so only activity 0 can be authored.
 - **[Confirmed]** Deck building (`GameMaster.CreateDeck` / `FillCardSection`) uses one shared deck for both players: 20/30/30 cards of attack, defence and draw spells, chosen randomly, with copy limits by rarity.
+- **[Confirmed]** H2: an exhausted deck triggers a synchronous server refill. `RefillDeck` despawns/destroys graveyard cards and removes them from `m_spawnedCards` before building a new deck capped at `m_refillDeckMaxRarity` (default `Rare`, excluding `UltraRare` and `Unique`). The initial `CreateDeck()` still allows every rarity. `DrawCard` skips leading nulls and returns with a warning for a null session or an empty refill; drawn identities still go only to the owner. Four-copy batches can exceed section limits, so today's Common-only deck has 84 cards; that algorithm is unchanged.
 - **[Confirmed]** The character has 100 HP (`PlayerController.Init`). A session has 3 lives (`PlayerSession.Initialize`). A block has 100 HP (`BlockController.Initialize`).
-- **[Confirmed]** Heal above max HP converts 50% of the overflow into extra HP above max (`ProcessActivity`, Heal branch).
+- **[Confirmed]** Character and block healing above max HP converts 50% of the overflow into extra HP above max, using the same `ConvertTo<int>()` conversion (`ProcessActivity`, Heal branch). Blocks retain their `Initialize` maximum in server-only `m_blockHPMax`, exposed by `GetMaxHP()` (H3).
 
 State display (client):
 - `PlayerUI` polls in `Update` for HP and life text. It rebuilds the hand UI on `NetworkList` changes and phase changes, showing the hand during selection phases and `m_boardPlayCards` during `PlayerAction`/`ResolveCards`.

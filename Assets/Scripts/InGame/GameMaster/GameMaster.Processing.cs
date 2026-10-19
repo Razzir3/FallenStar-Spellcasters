@@ -214,14 +214,15 @@ public partial class GameMaster
                     if (activity.s_targetType == CardTargetType.AnyPlayerBlock || activity.s_targetType == CardTargetType.OpponentBlock || activity.s_targetType == CardTargetType.SelfBlock)
                     {
 
-                        if (_targetBlock.m_blockHP.Value <= (100 - activity.s_value))
+                        int _blockMaxHp = _targetBlock.GetMaxHP();
+                        if (_targetBlock.m_blockHP.Value <= (_blockMaxHp - activity.s_value))
                         {
                             _targetBlock.m_blockHP.Value += activity.s_value;
                         }
                         else
                         {
-                            double _shieldDelta = (activity.s_value - 100 + _targetBlock.m_blockHP.Value) * 0.5;
-                            _targetBlock.m_blockHP.Value = _targetCharacter.m_hpMax.Value + (_shieldDelta).ConvertTo<int>();
+                            double _shieldDelta = (activity.s_value - _blockMaxHp + _targetBlock.m_blockHP.Value) * 0.5;
+                            _targetBlock.m_blockHP.Value = _blockMaxHp + (_shieldDelta).ConvertTo<int>();
                         }
                         UpdateBlockHp(_targetBlock);
                     }
