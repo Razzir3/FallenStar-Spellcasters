@@ -15,6 +15,26 @@ MonoBehaviour:
   m_TableCollectionName: UI_table
   m_TableCollectionNameGuidString: 5f329d5350a5fd44e86607395a0dd117
   m_Entries:
+  - m_Id: 49867087845064704
+    m_Key: btn_leaveMatch
+    m_Metadata:
+      m_Items: []
+  - m_Id: 49867087916367872
+    m_Key: leave_confirm_text
+    m_Metadata:
+      m_Items: []
+  - m_Id: 49867087916367873
+    m_Key: btn_leaveConfirm
+    m_Metadata:
+      m_Items: []
+  - m_Id: 49867087916367874
+    m_Key: btn_cancel
+    m_Metadata:
+      m_Items: []
+  - m_Id: 49867087916367875
+    m_Key: result_reason_youLeft
+    m_Metadata:
+      m_Items: []
   - m_Id: 49726419487227904
     m_Key: label_mana_capacity
     m_Metadata:

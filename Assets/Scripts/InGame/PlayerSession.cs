@@ -65,6 +65,16 @@ public class PlayerSession : NetworkBehaviour
 
     private ulong m_respawnBlockNetworkId = 0;
 
+    public bool IsCardSelectedToPlay(NetworkCard card)
+    {
+        return m_selectedCardsToPlay.Contains(card);
+    }
+
+    public bool IsCardSelectedToDiscard(NetworkCard card)
+    {
+        return m_selectedCardsToDiscard.Contains(card);
+    }
+
     private void Awake()
     {
         m_camera = Camera.main;
@@ -124,6 +134,37 @@ public class PlayerSession : NetworkBehaviour
         }
 
         return true;
+    }
+
+    public void RequestLeaveMatch()
+    {
+        if (!IsOwner)
+            return;
+
+        LeaveMatchServerRpc();
+    }
+
+    [ServerRpc]
+    private void LeaveMatchServerRpc(ServerRpcParams rpcParams = default)
+    {
+        if (rpcParams.Receive.SenderClientId != OwnerClientId)
+        {
+            if (SessionManager.Instance != null)
+            {
+                PlayerSession _senderSession = SessionManager.Instance.GetPlayerSession(rpcParams.Receive.SenderClientId);
+                if (_senderSession != null)
+                {
+                    _senderSession.ReportSuspicious(SuspiciousActionType.RpcSenderMismatch,
+                        $"Leave sender {rpcParams.Receive.SenderClientId} does not own session {NetworkObjectId}.");
+                }
+            }
+            return;
+        }
+
+        if (GameMaster.Instance == null)
+            return;
+
+        GameMaster.Instance.HandlePlayerSurrender(this);
     }
 
     public void ConfirmTurn()

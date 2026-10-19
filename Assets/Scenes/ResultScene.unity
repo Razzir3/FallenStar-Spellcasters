@@ -1219,6 +1219,15 @@ MonoBehaviour:
     m_FallbackState: 0
     m_WaitForCompletion: 0
     m_LocalVariables: []
+  m_reasonYouLeft:
+    m_TableReference:
+      m_TableCollectionName: UI_table
+    m_TableEntryReference:
+      m_KeyId: 0
+      m_Key: result_reason_youLeft
+    m_FallbackState: 0
+    m_WaitForCompletion: 0
+    m_LocalVariables: []
   m_debugMode: 0
   references:
     version: 2

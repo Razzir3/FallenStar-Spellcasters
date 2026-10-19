@@ -1175,6 +1175,16 @@ public class MultiplayerManager : MonoBehaviour
         return NetworkManager.Singleton.ConnectedClients.Count;
     }
 
+    private void AbortGameStart(string reason)
+    {
+        Debug.LogError("MultiplayerManager: match start aborted. Reason: " + reason);
+
+        if (GameMaster.Instance != null)
+            GameMaster.Instance.AbortMatch(reason);
+        else
+            Disconnect();
+    }
+
     private async void OnLoadEventCompleted(
         string sceneName,
         LoadSceneMode loadSceneMode,
@@ -1200,6 +1210,12 @@ public class MultiplayerManager : MonoBehaviour
         if (!NetworkManager.Singleton.IsServer)
             return;
 
+        if (clientTimeOut != null && clientTimeOut.Count > 0)
+        {
+            AbortGameStart("client_scene_load_timeout");
+            return;
+        }
+
         await m_bootsTrap.RecreateGameMaster();
 
         m_gameMaster =
@@ -1209,6 +1225,7 @@ public class MultiplayerManager : MonoBehaviour
         {
             Debug.LogError(
                 "OnLoadEventCompleted: Cant create game master");
+            AbortGameStart("game_master_missing");
             return;
         }
 
@@ -1216,6 +1233,7 @@ public class MultiplayerManager : MonoBehaviour
         {
             Debug.LogError(
                 "Game master not linked to Instance");
+            AbortGameStart("game_master_missing");
             return;
         }
 
@@ -1229,6 +1247,14 @@ public class MultiplayerManager : MonoBehaviour
 
         while (SessionManager.Instance == null)
         {
+            if (NetworkManager.Singleton == null ||
+                !NetworkManager.Singleton.IsListening ||
+                NetworkManager.Singleton.ConnectedClientsIds.Count < m_maxLobbyPlayers)
+            {
+                AbortGameStart("player_left_before_start");
+                yield break;
+            }
+
             _timer += Time.deltaTime;
 
             if (_timer >= _timeout)
@@ -1236,6 +1262,7 @@ public class MultiplayerManager : MonoBehaviour
                 Debug.LogError(
                     "StartGameAfterSceneReady: SessionManager.Instance is null.");
 
+                AbortGameStart("session_manager_missing");
                 yield break;
             }
 
@@ -1244,8 +1271,23 @@ public class MultiplayerManager : MonoBehaviour
 
         _timer = 0f;
 
-        while (SessionManager.Instance.m_playerSessions.Count < m_maxLobbyPlayers)
+        while (SessionManager.Instance == null ||
+               SessionManager.Instance.m_playerSessions.Count < m_maxLobbyPlayers)
         {
+            if (NetworkManager.Singleton == null ||
+                !NetworkManager.Singleton.IsListening ||
+                NetworkManager.Singleton.ConnectedClientsIds.Count < m_maxLobbyPlayers)
+            {
+                AbortGameStart("player_left_before_start");
+                yield break;
+            }
+
+            if (SessionManager.Instance == null)
+            {
+                AbortGameStart("session_manager_missing");
+                yield break;
+            }
+
             _timer += Time.deltaTime;
 
             if (_timer >= _timeout)
@@ -1255,10 +1297,25 @@ public class MultiplayerManager : MonoBehaviour
                     "Current: " +
                     SessionManager.Instance.m_playerSessions.Count);
 
+                AbortGameStart("not_enough_sessions");
                 yield break;
             }
 
             yield return null;
+        }
+
+        if (NetworkManager.Singleton == null ||
+            !NetworkManager.Singleton.IsListening ||
+            NetworkManager.Singleton.ConnectedClientsIds.Count < m_maxLobbyPlayers)
+        {
+            AbortGameStart("player_left_before_start");
+            yield break;
+        }
+
+        if (GameMaster.Instance == null)
+        {
+            AbortGameStart("game_master_missing");
+            yield break;
         }
 
         GameMaster.Instance.SpawnPlayers();

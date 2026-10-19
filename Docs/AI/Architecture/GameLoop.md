@@ -53,6 +53,8 @@
 
 `MultiplayerManager.StartGameAfterSceneReady` does the following:
 
+N14 (2026-10-19): the server rejects a GameScene load completion with any timed-out clients before recreating GameMaster. Missing/unlinked GameMaster checks call `AbortGameStart("game_master_missing")`. `AbortGameStart` logs the reason and delegates to `GameMaster.AbortMatch`, or directly to `Disconnect` when no GameMaster exists. This reuses host lobby deletion, network shutdown, cleanup and the offline return to `LobbyScene`; no match result is generated before play starts.
+
 1. It waits ≤10 s for `SessionManager.Instance`. `SessionManager` is in-scene placed in `GameScene`. Its `OnNetworkSpawn` calls `CreateSessionsForAlreadyConnectedClients`, which calls `CreateSession(clientId)` for each connected client:
    - Instantiate `PlayerSessionPrefab`.
    - `GetFreeSlot` assigns slot index → `TeamId`, from 0 to 3, or −1 when full.
@@ -61,7 +63,7 @@
    - Add to `m_playerSessions` and `SessionDataList`.
 
    Clients rebuild `m_playerSessions` from the NetworkList `SessionDataList`.
-2. It waits ≤10 s until `m_playerSessions.Count >= 2`.
+2. It waits ≤10 s until `m_playerSessions.Count >= 2`. Both waits abort through `AbortGameStart` on timeout (`session_manager_missing` / `not_enough_sessions`), or immediately when NetworkManager is missing, stops listening or has fewer than two connected clients (`player_left_before_start`). Disappearance of SessionManager during the second wait also aborts safely. The connection check is repeated before spawning, including when neither wait was needed.
 3. It calls `GameMaster.SpawnPlayers()` (`GameMaster.Spawn.cs:210`). For each session with `SessionRole.Player`:
    - `CreateBlock`: 25 blocks around the team's scene `SpawnPoint` (5×5, 3 m pitch), each `SpawnWithOwnership(client)`. Then `BlockController.Initialize`, then `PlayerSession.AddBlock`, which re-initializes the child `SpawnPoint` team.
    - `SpawnCharacter`: random free scene `SpawnPoint` for the team, then `SpawnAsPlayerObject(client)`, `SessionObjectId`, `CharacterObjectId`, `SetSpawnPoint`, and finally `MovePlayeToSpawnPoint`, which moves the character 3 units up.
@@ -70,7 +72,7 @@
    - Stop the previous coroutine.
    - `DespawnAllCards`.
    - Reset all state and NetworkVariables.
-   - Collect players from `SessionManager.m_playerSessions`. If the count is not exactly 2, warn and **return without starting**.
+   - Collect players from `SessionManager.m_playerSessions`. A missing SessionManager or a count other than exactly 2 logs and calls `AbortMatch("match_start_failed")`, then returns without starting.
    - `SetOponent` on both players.
    - `CreateDeck`.
    - `StartCoroutine(GameLoop())`.
@@ -78,6 +80,8 @@
 `GameMaster.Awake` runs on instantiation, after `GameScene` is loaded. It calls `FindSpawnPoints`, `HideSpawnPoints` and `FindPlayerCardWorldAreas`, and only finds scene objects that exist at that moment. That means the two scene spawn points, team 0 and team 1, but not the block spawn points. **[Confirmed]**
 
 `SpawnPanelUI.OnClickSpawnPlayers` also calls `SpawnPlayers()`, but that panel exists only in disabled legacy scenes. **[Confirmed]**
+
+N14 leaves the H6 `HandlePlayerLeft` and all existing disconnect/result cleanup methods unchanged. A disconnect after the match loop starts still uses the established forfeit path. Isolated source checks passed for startup failures and normal startup; real host/client timing, lobby deletion and subsequent-match behavior still require Play Mode verification.
 
 ---
 
@@ -137,22 +141,30 @@ GameLoop()  (GameLoop.cs:44)
 
 ### 3.1 PlayerActionPhase (`GameLoop.cs:91`) [Confirmed]
 Each frame, until timeout or `m_activePlayerConfirmedAction` with an empty queue:
-1. If `m_externalDeathDetected || IsAnyPlayerDead()`, it breaks out when the game is finished. Otherwise it runs `WaitForRespawnIfNeeded()`, then restores `PlayerAction` and the active player.
+1. Check finish, then death, then finish again after `HandleDeathPausingCurrentPhase`. A respawn restores the saved phase, elapsed timer and active player (N18/M1).
 2. It drains `m_cardInputQueue`. For each package it:
    - re-checks the card exists, the card owner is the active player, the card is in `m_boardPlayCards`, and the data and activities are non-null
    - checks the target count ≥ number of activities, which is always 4
    - for each activity: a zero target is allowed only for `None/All*/Random*`, then `CheckActivity`
-   - on success, runs `ProcessActivity` for each activity. After each one it checks for death and runs the respawn wait.
+   - on success, runs `ProcessActivity` for each activity. After each one it uses the same finish/death/finish sequence. A decisive death breaks the activity loop; end-of-action cleanup remains reachable. Queued packages after a decisive activity remain the separate N6 issue.
    - runs `MoveCardOnGraveyard`
 3. At phase end it calls `ClearDiscardedCards(player)` and `ClearPlayedCards(player)`, which send all board cards to the graveyard.
 
-### 3.2 Respawn (`WaitForRespawnIfNeeded`, `GameLoop.cs:488`) [Confirmed]
+### 3.2 Death pause and respawn (N18/M1, 2026-10-19) [Confirmed]
+
+- RoundBreak, drawing, CardSelection and PlayerAction check finish before death handling, then finish again after it. The outer GameLoop also checks finish after RoundBreak, drawing and CardSelection, reaching its existing winner/EndMatch path without starting the next phase.
+- `HandleDeathPausingCurrentPhase` clears the external death flag, finds a dead player with remaining lives and checks `GetRespawnPoints` before entering a pause. No lives means no wait; no valid blocks means life becomes -1 and no wait.
+- A possible respawn saves the current phase, elapsed timer and active-player reference, then yields the existing `WaitForRespawnIfNeeded`. It restores all three only if the match can continue. Mana growth, draws already made, accepted selections and MANA2 reset counters are not initialized again.
+- Drawing uses an interruptible, scaled per-frame delay instead of one `WaitForSeconds`, checking death/finish inside the delay as well as before each draw. The partially completed delay remains local to the suspended iterator, so respawn time does not consume it. The configured delay and the existing elapsed-timer increment per completed draw are retained. Drawing still inherits its existing phase value (normally RoundBreak); no phase enum/order change was made.
+- The respawn routine below, respawn-condition lookup and character-spawn implementation are unchanged. H6 still stops the outer guarded coroutine during a pause.
+
+Existing `WaitForRespawnIfNeeded` behavior:
 - A player is dead when `GetCharacter() == null` and `TeamId != -1`.
 - `FindDeadPlayer` picks the first dead player that still has lives.
 - It sets `phase = RespawnWait` and `m_waitingRespawnPlayer`, then waits up to `m_respawnWaitTime` (30 s) for `m_respawnConfirmed`.
 - If the chosen block is still valid it uses its child `SpawnPoint`. Otherwise it picks a random valid own block.
 - With no valid blocks, it sets `m_lifeCurrent = -1`, which permanently eliminates the player.
-- Then `RespawnCharacter` spawns a new character, and the phase becomes `ResolveCards` until the caller restores `PlayerAction`.
+- Then `RespawnCharacter` spawns a new character, and the phase becomes `ResolveCards` until the pause helper restores the original phase. A finished match skips restoration.
 
 ### 3.3 Death and finish conditions [Confirmed]
 - **HP ≤ 0** (`UpdatePlayerHP`, `Processing.cs:319`): `m_lifeCurrent -= 1`, `DespawnCharacter`, free the spawn point, `CharacterObjectId = 0`.
@@ -169,6 +181,7 @@ Each frame, until timeout or `m_activePlayerConfirmedAction` with an empty queue
 
 ### 3.5 Timer
 - `m_timer` is a server-written `NetworkVariable<float>`, incremented by `Time.deltaTime` every frame in each phase and reset at the start of each phase and each respawn wait.
+- N18/M1 saves the suspended phase timer before respawning and restores it afterward, along with the phase and active player. The respawn timer remains the existing shared timer while the phase is RespawnWait.
 - Clients show `(int)m_timer` as **elapsed** time, not remaining (`GameAnnouncerUI`). **[Confirmed]**
 
 ---
@@ -198,8 +211,17 @@ Notes:
 
 - `PlayerUI.Update` lazily binds to `SessionManager.LocalPlayer`, subscribes to the three NetworkLists and `m_gamePhase`, and writes the HP and life labels every frame.
 - `PlayerUI.UpdateCards` destroys and rebuilds every `CardViewUI` on each list or phase change.
+- N18/M1: `CreateCardView` restores play/discard colors only in CardSelection, using `PlayerSession.IsCardSelectedToPlay` / `IsCardSelectedToDiscard`. The local lists survive the pause; they remain the source for the eventual confirm package. RespawnWait continues to hide the hand.
 - `CardWorldViewManager` rebuilds the board view layout on every board-list change and every `NetworkCard` location, rotation or face change (`RefreshAllSessions`).
 - `GameAnnouncerUI.Update` builds the phase, timer and active-player text every frame through new `LocalizedString` instances.
+
+### Voluntary surrender (N19, 2026-10-19)
+
+- `PlayerUIPrefab/LeaveMatch` provides a localized Leave match button and an initially inactive confirmation panel. Cancel only closes the panel. The new rect follows the existing root canvas dimensions because the prefab's existing root rect is only 100 by 100; existing HUD layout is retained. The full-viewport background Image has raycast targeting enabled, using the existing canvas and EventSystem.
+- During a running phase, confirmation calls the local owner's `PlayerSession.RequestLeaveMatch` and its owner-only `LeaveMatchServerRpc`. The RPC additionally checks the sender against `OwnerClientId`, reporting mismatches on the sender's session. Only the server's `HandlePlayerSurrender` decides the winner.
+- The surrender handler uses the H6 running-match guards, stops the guarded game coroutine, clears resolution/respawn flags and selects the other valid team. It retains the leaver in `m_players` and calls the unchanged `EndMatch` with the appended `MatchEndReason.Surrendered`. No eligible opponent uses `AbortMatch("player_surrendered_no_winner")`. H6 disconnect handling is unchanged.
+- The existing H5 RPC/result transition delivers both peers to ResultScene: the leaver sees defeat and `result_reason_youLeft`; the winner uses the existing opponent-left reason. A draw uses the opponent-left reason defensively. Confirmation during phase None or without a local session uses the ordinary disconnect path. An unanswered request falls back to disconnect after five unscaled seconds; GameOver closes the dialog, disables the button and cancels that deadline.
+- Five new UI_table keys are available in en/ru/ja. Editor previews verified localized dialog and defeat-result rendering, plus actual Leave/Cancel button input. Real host/client delivery, simultaneous peer races and card/world click blocking still require the N19 manual checks; isolated source checks do not establish transport behavior.
 
 ---
 
@@ -214,8 +236,8 @@ These are documented, not fixed. Each needs separate verification.
 | L3 | Resolved by H3 (2026-10-19): block heal uses its server-only `GetMaxHP()` and the character overflow formula/conversion | `Processing.cs`, `BlockController.cs` | No character reference or hard-coded maximum remains in the block heal branch. |
 | L4 | `CheckActivity` dereferences `_ownerPlayer` before its null check | `Processing.cs:69` | NRE leads to L1 |
 | L5 | `FillCardSection` writes `_nonUniqueList[i]` on a possibly empty list for `UltraRare` | `Card.cs:262` | `StartNewGame` throws once an UltraRare card exists. No current card is UltraRare. |
-| L6 | `WaitForRespawnIfNeeded` resets the shared `m_timer` inside `PlayerActionPhase` | `GameLoop.cs:530` | The active player's turn timer is altered after a respawn |
-| L7 | After a lethal activity, `break` only exits the activity `for` loop | `GameLoop.cs:272` | The match can idle up to 60 s before ending |
+| L6 | Resolved by N18/M1: the pause helper saves and restores the phase timer and active player | `GameMaster.GameLoop.cs` | Respawn time no longer consumes/resets action-turn time. |
+| L7 | N6 remains: after a decisive activity, queued card packages can still resolve | `PlayerActionPhase` | N18/M1 adds finish checks at frame/activity sites; draining already queued packages remains outside its scope. |
 | L8 | The end of the match only logs on the server. `m_isLocalPlayerLost` is host-relative and is not networked | `GameLoop.cs:44-62`, `FindLostPlayer` | Clients never see a result. Players remain in `GameScene`. |
 | L9 | An opponent disconnect is not handled by `GameMaster`. Destroyed sessions stay in `m_players` | `MultiplayerManager.OnClientDisconnected`, `SessionManager.OnClientDisconnected` | Undefined end state. See [Dependencies.md](Dependencies.md#5-regression-points). |
 | L10 | `IsGameFinished()` has the side effect `FindLostPlayer()`, which sets `m_externalDeathDetected` | `GameLoop.cs:679` | Hidden coupling. The death flag is re-raised by every finish check. |

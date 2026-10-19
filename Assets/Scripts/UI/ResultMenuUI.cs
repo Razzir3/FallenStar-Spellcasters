@@ -13,6 +13,7 @@ public class ResultMenuUI : MonoBehaviour
     [SerializeField] private LocalizedString m_reasonOpponentLostLives;
     [SerializeField] private LocalizedString m_reasonBothLostLives;
     [SerializeField] private LocalizedString m_reasonOpponentLeft;
+    [SerializeField] private LocalizedString m_reasonYouLeft;
     [SerializeField] private bool m_debugMode = false;
 
     private bool m_isLeaving;
@@ -43,6 +44,10 @@ public class ResultMenuUI : MonoBehaviour
                 break;
             case MatchEndReason.OpponentDisconnected:
                 m_reasonText.StringReference = m_reasonOpponentLeft;
+                break;
+            case MatchEndReason.Surrendered:
+                m_reasonText.StringReference = MatchResultData.IsWinner || MatchResultData.IsDraw
+                    ? m_reasonOpponentLeft : m_reasonYouLeft;
                 break;
         }
 

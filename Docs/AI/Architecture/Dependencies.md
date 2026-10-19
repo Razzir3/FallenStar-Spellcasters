@@ -19,7 +19,7 @@
 | `LobbyControlUI`, `LobbyListUI`, `LobbyPlayerListUI`, `CurrentLobbyUI` | `LobbyScene` |
 | `LobbyListItemUI`, `LobbyPlayerItemUI` | `UiPrefab/LobbyListItemPrefab`, `LobbyPlayerItemPrefab` |
 | `SessionManager` | `SessionManager.prefab` → in-scene instance in `GameScene` |
-| `PlayerUI`, `ConfirmTargetButtonUI`, `ConfirmSendButton` (class `ConfirmSendButtonUI1`) | `UiPrefab/PlayerUIPrefab` → in-scene instance in `GameScene` |
+| `PlayerUI`, `ConfirmTargetButtonUI`, `ConfirmSendButton` (class `ConfirmSendButtonUI1`), `LeaveMatchUI` (N19) | `UiPrefab/PlayerUIPrefab` → in-scene instance in `GameScene` |
 | `CardWorldViewManager` | `CardWorldManagerPrefab` → `GameScene` |
 | `PlayerCardWorldArea` (file `PlayerCardfWorldArea.cs`) | `PlayerWorldCardAreaPrefab` ×2 in `GameScene` (`m_sessionSearchId` 0 and 1) |
 | `SpawnPoint` | `SpawnPoint.prefab`: ×2 in `GameScene` (`m_teamId` 0 and 1), and as a child of `BlockBody` |
@@ -108,7 +108,7 @@ graph TD
 | From → To | Calls / accesses | Where |
 |---|---|---|
 | `MultiplayerManager` → `Bootstrap` | `RecreateNetworkManager`, `RecreateGameMaster`, `m_gameMasterInstance` | `Start`, `StartHost`, `JoinLobbyById`, `JoinLobbyByJoinCode`, `OnLoadEventCompleted` |
-| `MultiplayerManager` → `GameMaster` | `ClearupAfterDisconnect`, `SpawnPlayers`, `StartNewGame` | `HandleLostConnectionToHost`, `ShutdownHostInternal`, `DisconnectClientInternal`, `CleanupAfterDisconnect`, `StartGameAfterSceneReady` |
+| `MultiplayerManager` → `GameMaster` | `ClearupAfterDisconnect`, `SpawnPlayers`, `StartNewGame`, `AbortMatch` | Existing cleanup/start paths; N14 `AbortGameStart` delegates startup failures to `AbortMatch`, or directly to `Disconnect` when GameMaster is absent |
 | `MultiplayerManager` → `SessionManager` | `Instance.m_playerSessions.Count`, `ClearSessionOnDisconnect` | `StartGameAfterSceneReady`, `CleanupAfterDisconnect` |
 | `MultiplayerManager` → `SceneFlowManager` | `LoadGameSceneNetwork`, `MarkNetworkSceneLoadingFinished`, `LoadLobbyScene`, `GameSceneName` | `StartGameSceneWhenReady`, `OnLoadEventCompleted`, `CleanupAfterDisconnect` |
 | `GameMaster` → `MultiplayerManager` | writes `m_currentMultiplayerStatus` | `GameMaster.Spawn.cs` `SpawnPlayers` (**bidirectional coupling**) |
@@ -132,18 +132,21 @@ graph TD
 | `LavaKillZone` → `GameMaster` | `ServerKillPlayerByHazard` | `TryKillPlayer` |
 | `LoginUI` → `AuthManager`, `SceneFlowManager`. `MainMenuUI` / `LobbyControlUI` / `SettingsSceneButtonsUI` → `SceneFlowManager` | scene loads | UI scripts |
 | `DisconnectMenuUI` → `MultiplayerManager`, `LobbyControlUI.Instance`, `SpawnPanelUI.Instance` | `Disconnect`, `SetActive` | `OnClickLobbyDisconnect` (legacy scenes only) |
+| `LeaveMatchUI` → `GameMaster`, `SessionManager`, `PlayerSession`, `MultiplayerManager` (N19) | polls phase, requests `LocalPlayer.RequestLeaveMatch`, falls back to `Disconnect` | `PlayerUIPrefab/LeaveMatch`; owner-only RPC with sender validation delegates to server `HandlePlayerSurrender` → unchanged `EndMatch` / H5 transition |
+| `ResultMenuUI` → `MatchResultData`, `UI_table` (N19) | `Surrendered` maps winner/draw to opponent-left reason and loser to `m_reasonYouLeft` | `ResultScene` assigns `result_reason_youLeft`; five new localized leave/dialog/result keys in en/ru/ja |
 
 ### 2.2 Data / event contracts (network)
 
 | Contract | Writer | Readers |
 |---|---|---|
 | `GameMaster.m_gamePhase` | server `GameLoop` | `PlayerUI` (OnValueChanged), `GameAnnouncerUI` (poll), `PlayerSession` (poll), `GameMaster.Can*` |
-| `GameMaster.m_timer` | server (every frame) | `GameAnnouncerUI` |
+| `GameMaster.m_timer` | server phase/respawn coroutines; N18/M1 pause helper saves/restores the interrupted phase's elapsed value | `GameAnnouncerUI` |
 | `GameMaster.m_activePlayer` / `m_waitingRespawnPlayer` (`NetworkBehaviourReference`) | server | `GameAnnouncerUI`, `GameMaster.Can*`, `IsWaitingRespawnPlayer` |
 | `PlayerSession.m_handCards/m_boardPlayCards/m_boardDiscardCards` | server | `PlayerUI` (local session only), `CardWorldViewManager` (all sessions board), `GameMaster` |
 | `PlayerSession.TeamId/ClientId/CharacterObjectId/m_lifeCurrent/m_currentOponentNetworkObjectId` | server | UI, `GameMaster`, `CardWorldViewManager`, `PlayerCardWorldArea` binding |
 | `PlayerSession.m_manaCapacity/m_manaCurrent` (MANA1–MANA3) | server `GameMaster.StartNewGame`, `ApplyRoundManaGrowth`; accepted selection spending through `AddMana` | everyone may read; local play selection checks current mana; `PlayerUI` caches and displays own/opponent current and capacity |
 | `PlayerSession.SelectionRejectedClientRpc` (MANA2/MANA3) | server `HandleConfirmSelectionTurn`, targeted at the session owner | owner only: clears local selection and calls `PlayerUI.OnSelectionRejected` to clear highlights and show a localized two-second mana message |
+| `PlayerSession.IsCardSelectedToPlay/IsCardSelectedToDiscard` (N18/M1) | read-only queries over existing local selection lists | `PlayerUI.CreateCardView` restores play/discard colors during CardSelection rebuilds, including after RespawnWait |
 | `SessionManager.SessionDataList` (`NetworkList<SessionData>`) | server | all peers → `RebuildDictionary` → `m_playerSessions` |
 | `NetworkCard.m_ownerId/m_location/m_isRotated/m_isFaceUp` | server | `CardWorldViewManager`, `CardViewWorld` |
 | `NetworkCard.m_cardData` | **server direct field + `SendCardDataClientRpc` per client** | every view, `GameMaster`, `PlayerSession` |

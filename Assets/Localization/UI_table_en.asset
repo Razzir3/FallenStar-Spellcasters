@@ -261,6 +261,26 @@ MonoBehaviour:
     m_Localized: Not enough mana
     m_Metadata:
       m_Items: []
+  - m_Id: 49867087845064704
+    m_Localized: Leave match
+    m_Metadata:
+      m_Items: []
+  - m_Id: 49867087916367872
+    m_Localized: Leave the match? It will count as a defeat.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 49867087916367873
+    m_Localized: Leave
+    m_Metadata:
+      m_Items: []
+  - m_Id: 49867087916367874
+    m_Localized: Cancel
+    m_Metadata:
+      m_Items: []
+  - m_Id: 49867087916367875
+    m_Localized: You left the match.
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds:

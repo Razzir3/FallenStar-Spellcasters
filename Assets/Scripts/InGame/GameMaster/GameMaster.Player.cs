@@ -3,6 +3,45 @@ using UnityEngine;
 
 public partial class GameMaster
 {
+    public void HandlePlayerSurrender(PlayerSession session)
+    {
+        if (!IsServer || session == null)
+            return;
+
+        if (m_gameCoroutine == null || m_gamePhase.Value == GamePhase.None ||
+            m_gamePhase.Value == GamePhase.GameOver)
+            return;
+
+        if (!m_players.Contains(session))
+            return;
+
+        StopCoroutine(m_gameCoroutine);
+        m_gameCoroutine = null;
+        m_isResolvingCards = false;
+        m_isWaitingRespawn = false;
+
+        PlayerSession winner = null;
+        foreach (PlayerSession player in m_players)
+        {
+            if (player != null && player != session && player.TeamId.Value != -1)
+            {
+                winner = player;
+                break;
+            }
+        }
+
+        if (winner == null)
+        {
+            AbortMatch("player_surrendered_no_winner");
+            return;
+        }
+
+        EndMatch(winner, MatchEndReason.Surrendered);
+
+        if (m_debugMode)
+            Debug.Log($"GameMaster: player {session.OwnerClientId} surrendered.");
+    }
+
     public void HandlePlayerLeft(PlayerSession session)
     {
         if (!IsServer || session == null)

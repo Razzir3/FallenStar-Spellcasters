@@ -22,7 +22,8 @@ public enum GamePhase
 public enum MatchEndReason
 {
     LivesDepleted,
-    OpponentDisconnected
+    OpponentDisconnected,
+    Surrendered
 }
 
 public static class ListExtensions
@@ -539,6 +540,7 @@ public partial class GameMaster : NetworkBehaviour
             Debug.LogError(
                 "GameMaster.StartNewGame: SessionManager.Instance is null.");
 
+            AbortMatch("match_start_failed");
             return;
         }
 
@@ -566,6 +568,7 @@ public partial class GameMaster : NetworkBehaviour
                 $"GameMaster.StartNewGame: expected 2 players, " +
                 $"found {m_players.Count}.");
 
+            AbortMatch("match_start_failed");
             return;
         }
 

@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using Unity.Netcode;
 using UnityEngine;
 
 public partial class GameMaster
@@ -102,8 +103,11 @@ public partial class GameMaster
         while (!IsGameFinished())
         {
             yield return RoundBreakPhase(_isFirstRound);
+            if (IsGameFinished()) break;
             yield return DrawCardPhase();
+            if (IsGameFinished()) break;
             yield return CardSelectionPhase();
+            if (IsGameFinished()) break;
             yield return PlayerTurnPhase();
             _isFirstRound = false;
         }
@@ -172,25 +176,11 @@ public partial class GameMaster
 
         while (m_timer.Value < m_playerActionTime)
         {
+            if (IsGameFinished()) break;
             if (m_externalDeathDetected || IsAnyPlayerDead())
             {
-                m_externalDeathDetected = false;
-
-                if (IsGameFinished())
-                {
-                    break;
-                }
-
-                yield return WaitForRespawnIfNeeded();
-
-                if (!IsGameFinished())
-                {
-                    m_gamePhase.Value =
-                        GamePhase.PlayerAction;
-
-                    m_activePlayer.Value =
-                        player;
-                }
+                yield return HandleDeathPausingCurrentPhase();
+                if (IsGameFinished()) break;
             }
             while (m_cardInputQueue.Count > 0)
             {
@@ -327,22 +317,11 @@ public partial class GameMaster
 
                     ProcessActivity(_activity, _targetNetworkObjectId, _currentCard.m_ownerId.Value);
 
-                    if (IsAnyPlayerDead())
+                    if (IsGameFinished()) break;
+                    if (m_externalDeathDetected || IsAnyPlayerDead())
                     {
-                        if (IsGameFinished())
-                        {
-                            break;
-                        }
-
-                        yield return WaitForRespawnIfNeeded();
-
-                        if (!IsGameFinished())
-                        {
-                            m_gamePhase.Value =
-                                GamePhase.PlayerAction;
-
-                            m_activePlayer.Value = player;
-                        }
+                        yield return HandleDeathPausingCurrentPhase();
+                        if (IsGameFinished()) break;
                     }
                 }
 
@@ -421,6 +400,13 @@ public partial class GameMaster
 
         while (m_timer.Value < m_roundBreakTime)
         {
+            if (IsGameFinished()) yield break;
+            if (m_externalDeathDetected || IsAnyPlayerDead())
+            {
+                yield return HandleDeathPausingCurrentPhase();
+                if (IsGameFinished()) yield break;
+            }
+
             m_timer.Value += Time.deltaTime;
             yield return null;
         }
@@ -542,6 +528,13 @@ public partial class GameMaster
 
         while (m_timer.Value < m_cardSelectionTime)
         {
+            if (IsGameFinished()) yield break;
+            if (m_externalDeathDetected || IsAnyPlayerDead())
+            {
+                yield return HandleDeathPausingCurrentPhase();
+                if (IsGameFinished()) yield break;
+            }
+
             if (AllPlayerConfirmedSelection())
             {
                 break;
@@ -564,12 +557,68 @@ public partial class GameMaster
         {
             for (int j = 0; j < m_players.Count; j++)
             {
+                if (IsGameFinished()) yield break;
+                if (m_externalDeathDetected || IsAnyPlayerDead())
+                {
+                    yield return HandleDeathPausingCurrentPhase();
+                    if (IsGameFinished()) yield break;
+                }
+
                 DrawCard(m_players[j]);
-                yield return new WaitForSeconds(m_cardDrawDelay);
+                // Keep the draw delay interruptible so a death is noticed next frame.
+                float _drawDelayElapsed = 0f;
+                do
+                {
+                    yield return null;
+
+                    if (IsGameFinished()) yield break;
+                    if (m_externalDeathDetected || IsAnyPlayerDead())
+                    {
+                        yield return HandleDeathPausingCurrentPhase();
+                        if (IsGameFinished()) yield break;
+                    }
+
+                    _drawDelayElapsed += Time.deltaTime;
+                }
+                while (_drawDelayElapsed < m_cardDrawDelay);
+
                 m_timer.Value += m_cardDrawDelay;
             }
         }
         Debug.Log("Draw phase ended");
+    }
+    /// <summary>
+    /// Pauses a phase only when a dead player can respawn, then resumes its saved state.
+    /// </summary>
+    private IEnumerator HandleDeathPausingCurrentPhase()
+    {
+        m_externalDeathDetected = false;
+
+        if (!IsAnyPlayerDead())
+            yield break;
+
+        PlayerSession _dead = FindDeadPlayer();
+        if (_dead == null)
+            yield break;
+
+        if (GetRespawnPoints(_dead).Count == 0)
+        {
+            _dead.m_lifeCurrent.Value = -1;
+            yield break;
+        }
+
+        GamePhase _pausedPhase = m_gamePhase.Value;
+        float _pausedTimer = m_timer.Value;
+        NetworkBehaviourReference _pausedActivePlayer = m_activePlayer.Value;
+
+        yield return WaitForRespawnIfNeeded();
+
+        if (IsGameFinished())
+            yield break;
+
+        m_gamePhase.Value = _pausedPhase;
+        m_timer.Value = _pausedTimer;
+        m_activePlayer.Value = _pausedActivePlayer;
     }
     /// <summary>
     /// Searches for any player who has lost all their lives and updates the game state accordingly. It checks each player's current life value, and if a player is found to have zero or less life, it records their network object ID, sets the external death detected flag, and determines if the lost player is the local player.

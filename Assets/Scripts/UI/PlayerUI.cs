@@ -275,6 +275,15 @@ public class PlayerUI : NetworkBehaviour
         _view.Setup(card.m_cardData);
         _view.SetNetworkCard(card);
 
+        if (GameMaster.Instance != null && m_playerSession != null &&
+            GameMaster.Instance.m_gamePhase.Value == GamePhase.CardSelection)
+        {
+            if (m_playerSession.IsCardSelectedToPlay(card))
+                _view.SetSelectedColor();
+            else if (m_playerSession.IsCardSelectedToDiscard(card))
+                _view.SetAlterSelectedColor();
+        }
+
         _view.Clicked -= OnCardClicked;
         _view.Clicked += OnCardClicked;
 
