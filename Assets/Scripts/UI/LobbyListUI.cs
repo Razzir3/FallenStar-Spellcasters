@@ -39,6 +39,9 @@ public class LobbyListUI : MonoBehaviour
     private readonly List<LobbyListItemUI> m_createdItem = new List<LobbyListItemUI>();
 
     private Lobby m_selectedLobby;
+    [SerializeField] private LocalizedString m_unknownLobbyString =
+        new LocalizedString("UI_table", "lobby_name_unknown");
+    private bool m_isUnknownLobbyName;
 
     private enum StatusMode
     {
@@ -69,6 +72,7 @@ public class LobbyListUI : MonoBehaviour
         m_lobbyNotFoundString.StringChanged += OnLobbyNotFoundStringChanged;
         m_foundLobbiesString.StringChanged += OnFoundLobbiesStringChanged;
         m_selectedLobbyString.StringChanged += OnSelectedLobbyStringChanged;
+        m_unknownLobbyString.StringChanged += OnUnknownLobbyStringChanged;
     }
 
     private void OnDisable()
@@ -79,6 +83,7 @@ public class LobbyListUI : MonoBehaviour
         m_lobbyNotFoundString.StringChanged -= OnLobbyNotFoundStringChanged;
         m_foundLobbiesString.StringChanged -= OnFoundLobbiesStringChanged;
         m_selectedLobbyString.StringChanged -= OnSelectedLobbyStringChanged;
+        m_unknownLobbyString.StringChanged -= OnUnknownLobbyStringChanged;
     }
 
     private void OnDestroy()
@@ -206,8 +211,18 @@ public class LobbyListUI : MonoBehaviour
     {
         m_statusMode = StatusMode.SelectedLobby;
 
-        m_lobbyName.Value = string.IsNullOrEmpty(lobbyName) ? "Unknown Lobby" : lobbyName;
+        m_isUnknownLobbyName = string.IsNullOrEmpty(lobbyName);
+        m_lobbyName.Value = m_isUnknownLobbyName ? m_unknownLobbyString.GetLocalizedString() : lobbyName;
 
+        m_selectedLobbyString.RefreshString();
+    }
+
+    private void OnUnknownLobbyStringChanged(string value)
+    {
+        if (m_statusMode != StatusMode.SelectedLobby || !m_isUnknownLobbyName)
+            return;
+
+        m_lobbyName.Value = value;
         m_selectedLobbyString.RefreshString();
     }
 

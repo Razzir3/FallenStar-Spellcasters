@@ -35,13 +35,13 @@
 | Login | `LoginUI.OnClickLoginAnonymous` → `AuthManager.SingInAnonymous` (in the Editor, `SwitchProfile("Editor_"+hash(dataPath))` gives ParrelSync clones distinct ids) | `SceneFlowManager.LoadMainMenuScene` → `SceneManager.LoadScene` | [Confirmed] |
 | Steam login | `LoginUI.OnClickLoginSteam` → `AuthManager.SignInSteam` only logs "not ready" | — | [Unfinished] |
 | Menu → Lobby | `MainMenuUI.OnClickLobby` | `LoadLobbyScene` (offline) | [Confirmed] |
-| Create lobby | `LobbyControlUI.OnClickCreateLobby` → `MultiplayerManager.StartHost` → `RecreateNetworkManager` → `CreateRelay` (`StartHost()`) → `LobbyService.CreateLobbyAsync("MyLobby", 2, joinCode)` | — | [Confirmed] |
+| Create lobby | `LobbyControlUI.OnClickCreateLobby` → `MultiplayerManager.StartHost` → `RecreateNetworkManager` → `CreateRelay` (`StartHost()`) → `LobbyService.CreateLobbyAsync(GetShortPlayerId(), 2, options)` | — | [Confirmed] |
 | Join lobby | `LobbyListUI.OnClickRefreshLobbyList` → `FindAvailableLobbies`. Then `LobbyListItemUI.OnClickJoin` → `LobbyListUI.OnJoinLobbyClicked` → `MultiplayerManager.JoinLobbyById` → `JoinRelay` (`StartClient()`, waits ≤10 s for connect) | — | [Confirmed] |
-| Join by code | `MultiplayerManager.JoinLobbyByJoinCode`. `m_joinCodeInput` is never assigned and there is no UI caller | — | [Unfinished] |
+| Join by code | M11: `JoinLobbyByJoinCode` and `m_joinCodeInput` are retained as comments, excluded from compilation | — | Parked by owner decision; restoration requirements are in TASK-M11 |
 | Lobby polling | `CurrentLobbyUI.RefreshLobbyLoop` runs every 2 s: `RefreshCurrentLobby`, and shows the Start button for the host when the lobby has 2 players | — | [Confirmed] |
 | Start match | `CurrentLobbyUI.OnClickStartGame` → `MultiplayerManager.StartGameScene` → coroutine `StartGameSceneWhenReady`, which waits until 2 NGO clients connect (≤10 s) and re-checks the lobby | `SceneFlowManager.LoadGameSceneNetwork` → `NetworkManager.SceneManager.LoadScene("GameScene", Single)` | [Confirmed] |
 | Game scene ready | `MultiplayerManager.OnLoadEventCompleted` (all peers) → server only: `Bootstrap.RecreateGameMaster` → `StartGameAfterSceneReady` | — | [Confirmed] |
-| Settings | `SceneFlowManager.LoadSettingsScene` targets `"SettingsScene"`, which does not exist. No caller found | — | [Unfinished] |
+| Settings | M12: `MainMenuUI.OnClickSettings` → `SceneFlowManager.LoadSettingsScene`; SettingsUI changes/persists locale; SettingsSceneButtonsUI returns to Main menu | Offline SettingsScene load; enabled after MainMenuScene | Implemented; en/ru/ja navigation and restart persistence checked |
 | End of match → Result | Not implemented | — | [Unfinished] |
 | Disconnect / connection loss | `DisconnectMenuUI` / `LobbyControlUI.OnClickLeaveLobby` → `MultiplayerManager.Disconnect`, or NGO `OnClientDisconnectCallback` → `HandleLostConnectionToHost` → `CleanupAfterDisconnect` | `LoadLobbyScene` (offline) | [Confirmed] |
 
@@ -53,6 +53,8 @@
 - Failed host start shuts down a listening NetworkManager and clears the local lobby/menu status. A failed join attempts membership removal and clears local lobby state; exception paths also shut down a listening NetworkManager. The failed-join removal helper contains its own unexpected service exceptions so recovery can finish. Relay reports its failure once on the active join-by-ID path. Join-by-code and the unused DisconnectClient remain separate task/non-goal code.
 - `RefreshCurrentLobby` returns `Task<bool>`: failures retain the cached lobby and return false. The startup coroutine warns before continuing the existing last-known-lobby and two-connected-client checks. `CurrentLobbyUI` continues to await the result without needing a signature change of its own.
 - A thrown GameMaster recreation logs the exception and calls the existing N14 `AbortGameStart("game_master_create_failed")`. Existing timeout reasons, successful call order, result transitions, heartbeat interval and timeouts are retained. Remote cleanup during a service outage remains a best-effort request; local recovery does not establish immediate deletion/removal at UGS.
+
+M11/M13 (2026-10-20): join-by-code is parked unchanged inside comments. Active host/list-join calls retain protocol role values Host/Client through constants, while shared player/lobby names use the first six player-ID characters (numeric fallback when empty). Viewers localize role labels, counts and unknown-name fallbacks using UI_table. Locale subscriptions are balanced; existing list/player prefabs rely on field initializers without asset edits. Real prefab checks passed in en/ru/ja using local sample Lobby/Player data; live service create/join regression remains manual.
 
 ---
 
@@ -128,6 +130,13 @@ GameLoop()  (GameLoop.cs:44)
 - `ApplyRoundManaGrowth` is the single extension point for changing the round-growth/refill model. `AddMana(player, delta)` is a server-only helper for later spending/effects, clamped to `[0, capacity]`.
 - `PlayerSession.m_manaCapacity` and `m_manaCurrent` are server-written NetworkVariables readable by everyone. Mana is not written in `PlayerSession.Initialize`; turn order is unchanged. Selection spending and mana display are described below.
 - These paths were checked statically; host/client replication and round progression still require Play Mode verification.
+
+### Hand limit after drawing (M15, 2026-10-20)
+
+- A successful DrawCard, from either round draws or Clarity, invokes server-only DiscardOldestOverHandLimit after removing the drawn card from the deck. The additive `m_maxHandCards` defaults to 10; zero/negative disables the rule. Failed draws do not discard anything.
+- Hand-list order is draw age. The helper copies uncommitted IDs, excluding both board-play and board-discard lists, and removes the oldest excess through the existing MoveCardOnGraveyard path. Stale IDs are removed with the existing list helper. Committed cards remain protected and the newly drawn card remains newest.
+- One owner-targeted HandLimitDiscardClientRpc per event shows `hand_limit_discard`. Clients prune null/no-longer-held cards from local selections on hand rebuild and immediately before ordinary confirmation; valid carried-over selections and committed cards remain. This prevents discarded carry-over IDs from becoming false InvalidCardSelection reports without resolving N26 itself.
+- PlayerUI's shared message helper remembers the active LocalizedString, so both mana and hand-limit messages refresh on locale changes while retaining the current deadline. Expiry and ClearLocalUI clear that reference. The HUD prefab adds only the hand-limit localization reference.
 
 ### Mana validation at selection confirm (MANA2)
 
@@ -257,7 +266,7 @@ These are documented, not fixed. Each needs separate verification.
 | L8 | The end of the match only logs on the server. `m_isLocalPlayerLost` is host-relative and is not networked | `GameLoop.cs:44-62`, `FindLostPlayer` | Clients never see a result. Players remain in `GameScene`. |
 | L9 | An opponent disconnect is not handled by `GameMaster`. Destroyed sessions stay in `m_players` | `MultiplayerManager.OnClientDisconnected`, `SessionManager.OnClientDisconnected` | Undefined end state. See [Dependencies.md](Dependencies.md#5-regression-points). |
 | L10 | `IsGameFinished()` has the side effect `FindLostPlayer()`, which sets `m_externalDeathDetected` | `GameLoop.cs:679` | Hidden coupling. The death flag is re-raised by every finish check. |
-| L11 | `CardSelectionPhase` selects but does not move cards. Unselected cards stay in hand indefinitely, and there is no hand limit | `CardSelectionPhase`, `DrawCardPhase` | Unbounded hand growth (design question) |
+| L11 | Resolved by M15 (2026-10-20): successful draws enforce the configured uncommitted-hand limit, default 10, discarding oldest excess cards | `GameMaster.Card.cs` | Committed cards are excluded; zero/negative disables the rule. Valid unconfirmed selection carry-over (N26) remains separate. |
 | L12 | Resolved by M3 (2026-10-20): lava uses an instance set and prunes Unity-destroyed entries | `LavaKillZone.cs` | Network ID reuse no longer suppresses a different pony instance; actual physics/recycled-ID Play Mode verification remains |
 
 ## 7. Unknown, needs Play Mode

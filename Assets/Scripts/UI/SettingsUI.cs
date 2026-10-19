@@ -21,6 +21,12 @@ public class SettingsUI : MonoBehaviour
 
     private void InitializeLanguageDropdown()
     {
+        if (m_languageDropdown == null)
+        {
+            Debug.LogError("SettingsUI: language dropdown is missing.");
+            return;
+        }
+
         m_locales.Clear();
         m_locales.AddRange(LocalizationSettings.AvailableLocales.Locales);
 
@@ -28,7 +34,11 @@ public class SettingsUI : MonoBehaviour
 
         foreach (Locale _locale in m_locales)
         {
-            string _displayName = _locale.LocaleName;
+            string _displayName = _locale.Identifier.CultureInfo?.NativeName;
+            if (!string.IsNullOrEmpty(_displayName))
+                _displayName = char.ToUpper(_displayName[0], System.Globalization.CultureInfo.CurrentCulture) + _displayName.Substring(1);
+            else
+                _displayName = _locale.LocaleName;
 
             if(string.IsNullOrEmpty(_displayName))
             {

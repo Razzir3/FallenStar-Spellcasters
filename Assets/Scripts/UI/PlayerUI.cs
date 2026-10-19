@@ -32,6 +32,7 @@ public class PlayerUI : NetworkBehaviour
     [SerializeField] private LocalizedString m_labelMana;
     [SerializeField] private LocalizedString m_labelOpponentMana;
     [SerializeField] private LocalizedString m_manaNotEnoughText;
+    [SerializeField] private LocalizedString m_handLimitDiscardText;
     [SerializeField] private float m_messageDuration = 2f;
     [SerializeField] private LocalizedString m_playerDeadText;
     [SerializeField] private LocalizedString m_phaseAnouncementText;
@@ -43,6 +44,7 @@ public class PlayerUI : NetworkBehaviour
     private int m_opponentManaCurrent = -1;
     private int m_opponentManaCapacity = -1;
     private float m_messageHideTime = -1f;
+    private LocalizedString m_activeMessage;
 
     private PlayerSession m_playerSession;
     
@@ -71,12 +73,14 @@ public class PlayerUI : NetworkBehaviour
         Instance = this;
     }
 
-    private void OnDestroy()
+    public override void OnDestroy()
     {
         if (Instance == this)
         {
             Instance = null;
         }
+
+        base.OnDestroy();
     }
 
     // Update is called once per frame
@@ -87,6 +91,7 @@ public class PlayerUI : NetworkBehaviour
             if (m_messageText != null)
                 m_messageText.text = "";
             m_messageHideTime = -1f;
+            m_activeMessage = null;
         }
 
         if ((GameMaster.Instance == null))
@@ -193,16 +198,27 @@ public class PlayerUI : NetworkBehaviour
     private void OnSelectedLocaleChanged(Locale locale)
     {
         ResetManaTextCache();
-        if (m_messageHideTime > Time.unscaledTime && m_messageText != null)
-            m_messageText.text = m_manaNotEnoughText.GetLocalizedString();
+        if (m_messageHideTime > Time.unscaledTime && m_messageText != null && m_activeMessage != null)
+            m_messageText.text = m_activeMessage.GetLocalizedString();
     }
 
     public void ShowManaNotEnough()
     {
+        ShowMessage(m_manaNotEnoughText);
+    }
+
+    public void ShowHandLimitDiscard()
+    {
+        ShowMessage(m_handLimitDiscardText);
+    }
+
+    private void ShowMessage(LocalizedString message)
+    {
         if (m_messageText == null)
             return;
 
-        m_messageText.text = m_manaNotEnoughText.GetLocalizedString();
+        m_activeMessage = message;
+        m_messageText.text = message.GetLocalizedString();
         m_messageHideTime = Time.unscaledTime + Mathf.Max(0f, m_messageDuration);
     }
     private void OnGamePhaseChanged(
@@ -219,6 +235,8 @@ public class PlayerUI : NetworkBehaviour
 
         if (m_playerSession == null)
             return;
+
+        m_playerSession.PruneLocalCardSelection();
 
         if (GameMaster.Instance == null)
             return;
@@ -556,6 +574,7 @@ public class PlayerUI : NetworkBehaviour
             m_messageText.text = "";
         ResetManaTextCache();
         m_messageHideTime = -1f;
+        m_activeMessage = null;
 
         m_selectedNetworkCard = null;
         m_selectedCardView = null;

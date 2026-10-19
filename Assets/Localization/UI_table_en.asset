@@ -281,6 +281,30 @@ MonoBehaviour:
     m_Localized: You left the match.
     m_Metadata:
       m_Items: []
+  - m_Id: 50130220824199168
+    m_Localized: Settings
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50130221755334656
+    m_Localized: Settings
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50130222338342912
+    m_Localized: Language
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50130222971682816
+    m_Localized: Unknown lobby
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50130223584051200
+    m_Localized: Unknown player
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50130224179642368
+    m_Localized: 'Hand limit reached: your oldest card was discarded.'
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds:

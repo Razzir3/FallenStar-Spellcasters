@@ -22,6 +22,9 @@ public class LobbyPlayerItemUI : MonoBehaviour
     private bool m_isSetup;
 
     private int m_setupVersion;
+    [SerializeField] private LocalizedString m_unknownPlayerString =
+        new LocalizedString("UI_table", "lobby_player_unknown");
+    private bool m_isUnknownPlayerName;
     #endregion
     #region Unity
     private void OnEnable()
@@ -47,7 +50,10 @@ public class LobbyPlayerItemUI : MonoBehaviour
 
         m_setupVersion++;
 
-        string _playerName = GetPlayerDataValue(player, "playerName", "Unknown Player");
+        string _playerName = GetPlayerDataValue(player, "playerName", null);
+        m_isUnknownPlayerName = _playerName == null;
+        if (m_isUnknownPlayerName)
+            _playerName = m_unknownPlayerString.GetLocalizedString();
 
         if (m_playerNameText != null)
         {
@@ -96,6 +102,8 @@ public class LobbyPlayerItemUI : MonoBehaviour
             return;
 
         m_setupVersion++;
+        if (m_isUnknownPlayerName && m_playerNameText != null)
+            m_playerNameText.text = m_unknownPlayerString.GetLocalizedString();
         SetRoleText(m_currentIsHost);
     }
 

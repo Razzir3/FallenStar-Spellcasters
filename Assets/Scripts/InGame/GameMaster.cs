@@ -78,6 +78,8 @@ public partial class GameMaster : NetworkBehaviour
     private float m_stepMoveDistance = 3f;
     [Header("GameRules")]
     [SerializeField] private int m_startHandCards = 2;
+    // 0 or less = no limit.
+    [SerializeField] private int m_maxHandCards = 10;
     [SerializeField] private int m_baseMana = 2;
     [SerializeField] private int m_manaGrowthStep = 2;
     [SerializeField] private int m_maxMana = 20;

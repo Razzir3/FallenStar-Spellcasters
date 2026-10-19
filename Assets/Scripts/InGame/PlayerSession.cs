@@ -187,6 +187,8 @@ public class PlayerSession : NetworkBehaviour
             return;
         }
 
+        PruneLocalCardSelection();
+
         m_selectedCardsToPlayID =ConvertCardsToNetworkId(m_selectedCardsToPlay);
 
         m_selectedCardsToDiscardID =ConvertCardsToNetworkId(m_selectedCardsToDiscard);
@@ -244,6 +246,22 @@ public class PlayerSession : NetworkBehaviour
             _result.Add(_netObject.NetworkObjectId);
         }
         return _result.ToArray();
+    }
+
+    [ClientRpc]
+    public void HandLimitDiscardClientRpc(ClientRpcParams clientRpcParams = default)
+    {
+        if (!IsOwner)
+            return;
+
+        if (PlayerUI.Instance != null)
+            PlayerUI.Instance.ShowHandLimitDiscard();
+    }
+
+    public void PruneLocalCardSelection()
+    {
+        m_selectedCardsToPlay.RemoveAll(card => card == null || !m_handCards.Contains(card.NetworkObjectId));
+        m_selectedCardsToDiscard.RemoveAll(card => card == null || !m_handCards.Contains(card.NetworkObjectId));
     }
 
     public bool SelectCardToPlay(NetworkCard card)

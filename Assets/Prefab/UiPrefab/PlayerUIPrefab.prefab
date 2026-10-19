@@ -1267,6 +1267,15 @@ MonoBehaviour:
     m_FallbackState: 0
     m_WaitForCompletion: 0
     m_LocalVariables: []
+  m_handLimitDiscardText:
+    m_TableReference:
+      m_TableCollectionName: UI_table
+    m_TableEntryReference:
+      m_KeyId: 0
+      m_Key: hand_limit_discard
+    m_FallbackState: 0
+    m_WaitForCompletion: 0
+    m_LocalVariables: []
   m_messageDuration: 2
   m_playerDeadText:
     m_TableReference:

@@ -55,6 +55,16 @@ public class SessionManager : NetworkBehaviour
         SessionDataList = new NetworkList<SessionData>();
         Instance = this;
     }
+
+    public override void OnDestroy()
+    {
+        if (Instance == this)
+        {
+            Instance = null;
+        }
+
+        base.OnDestroy();
+    }
     #endregion
     private int GetFreeSlot(ulong clientId)
     {
@@ -131,6 +141,8 @@ public class SessionManager : NetworkBehaviour
 
     public override void OnNetworkDespawn()
     {
+        SessionDataList.OnListChanged -= OnSessionListChanged;
+
         if (!NetworkManager.Singleton)
         {
             return;
@@ -138,8 +150,6 @@ public class SessionManager : NetworkBehaviour
 
         NetworkManager.Singleton.OnClientConnectedCallback -= OnClientConnected;
         NetworkManager.Singleton.OnClientDisconnectCallback -= OnClientDisconnected;
-
-        SessionDataList.OnListChanged -= OnSessionListChanged;
     }
 
     private void OnClientConnected(ulong clientId)

@@ -30,7 +30,7 @@ Source: `Packages/manifest.json`, `ProjectSettings/EditorBuildSettings.asset`, `
 | Other runtime deps used by scripts | `Unity.VisualScripting` (`ConvertTo<int>()` in `GameMaster.Processing.cs`), NUnit (`using NUnit.Framework` in `CardControllPackage.cs`), `UnityEditor.Localization...` (`CardPreviewController.cs`) |
 | NetworkManager config | TickRate 30, `EnableSceneManagement: 1`, `ConnectionApproval: 0`, `PlayerPrefab: none`, `RecycleNetworkIds: 1` with a 120 s delay; prefab list = `Assets/Prefab/NetworkPrefabs.asset` |
 
-Build scenes, in order: `LoginScene`, `MainMenuScene`, `LobbyScene`, `GameScene` are enabled. `SampleScene` and `MultiplayerScene` are disabled legacy scenes.
+Enabled build scenes, in order: `LoginScene`, `MainMenuScene`, `SettingsScene` (M12), `LobbyScene`, `GameScene`, `ResultScene`. `SampleScene` and `MultiplayerScene` remain disabled legacy scenes.
 
 ---
 
@@ -113,7 +113,7 @@ GameScene / LobbyScene ──(Disconnect or connection loss → CleanupAfterDisc
 
 - Offline loads use `SceneManager.LoadScene`. The game scene uses `NetworkManager.SceneManager.LoadScene(..., Single)`, so clients follow the host.
 - **[Unfinished]** `README.md` describes a flow ending in **Result**. No Result scene exists, and no code path leaves `GameScene` at the end of a match.
-- **[Unfinished]** `SceneFlowManager.LoadSettingsScene()` targets `"SettingsScene"`. That scene does not exist in `Assets/Scenes` or in the build settings. Nothing references `SettingsUI` or `SettingsSceneButtonsUI` in any scene or prefab.
+- M12 (2026-10-20): the main menu's Settings button opens the separate enabled `SettingsScene`. Its canvas, camera/background and InputSystem EventSystem follow MainMenuScene; SettingsUI and SettingsSceneButtonsUI provide the language dropdown and Back navigation. Managers continue to come from the boot flow. Locale native names are shown, selection applies immediately and the existing GameSettingsPrefs/Bootstrap path persists/restores the code.
 
 ---
 

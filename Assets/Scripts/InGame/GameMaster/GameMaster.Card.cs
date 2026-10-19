@@ -181,9 +181,56 @@ public partial class GameMaster
 
         m_deck.Remove(card);
 
+        DiscardOldestOverHandLimit(session);
+
         if(m_debugMode)
             Debug.Log("Draw");
     }
+    private bool IsCardCommitted(PlayerSession session, ulong cardId)
+    {
+        return ContainsNetworkObjectId(session.m_boardPlayCards, cardId) ||
+            ContainsNetworkObjectId(session.m_boardDiscardCards, cardId);
+    }
+
+    private void DiscardOldestOverHandLimit(PlayerSession session)
+    {
+        if (!IsServer || m_maxHandCards <= 0)
+            return;
+
+        List<ulong> _uncommitted = new List<ulong>();
+        foreach (ulong _cardId in session.m_handCards)
+        {
+            if (!IsCardCommitted(session, _cardId))
+                _uncommitted.Add(_cardId);
+        }
+
+        int _excess = _uncommitted.Count - m_maxHandCards;
+        if (_excess <= 0)
+            return;
+
+        int _count = 0;
+        for (int i = 0; i < _excess; i++)
+        {
+            NetworkCard _card = GetCardByID(_uncommitted[i]);
+            if (_card == null)
+                RemoveNetworkObjectId(session.m_handCards, _uncommitted[i]);
+            else
+                MoveCardOnGraveyard(_card);
+            _count++;
+        }
+
+        if (_count > 0)
+        {
+            if (m_debugMode)
+                Debug.Log($"Hand limit {m_maxHandCards}: discarded {_count} oldest card(s). Client {session.OwnerClientId}");
+
+            session.HandLimitDiscardClientRpc(new ClientRpcParams
+            {
+                Send = new ClientRpcSendParams { TargetClientIds = new[] { session.OwnerClientId } }
+            });
+        }
+    }
+
     /// <summary>
     /// Deletes the old graveyard before creating a new deck with the configured rarity limit.
     /// </summary>

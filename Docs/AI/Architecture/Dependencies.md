@@ -16,6 +16,7 @@
 | `Bootstrap`, `AuthManager`, `SceneFlowManager`, `MultiplayerManager` | `LoginScene` / `AppRoot` (same GameObject, DDOL). Legacy copies also exist in `SampleScene`, `MultiplayerScene`, `BootsTrap.prefab`, `MultiplayerManager.prefab` |
 | `LoginUI` | `LoginScene` |
 | `MainMenuUI` | `MainMenuScene` |
+| `SettingsUI`, `SettingsSceneButtonsUI` (M12) | `SettingsScene`; dropdown reference, localized labels and Back binding assigned |
 | `LobbyControlUI`, `LobbyListUI`, `LobbyPlayerListUI`, `CurrentLobbyUI` | `LobbyScene` |
 | `LobbyListItemUI`, `LobbyPlayerItemUI` | `UiPrefab/LobbyListItemPrefab`, `LobbyPlayerItemPrefab` |
 | `SessionManager` | `SessionManager.prefab` → in-scene instance in `GameScene` |
@@ -30,7 +31,7 @@
 | `BlockController` | `BoardPrefab/BlockBody` |
 | `NetworkCard` | `CardPrefab` |
 | `CardViewUI` / `CardViewWorld` | `CardViewUIPrefab` / `BoardPrefab/CardWorldViewPrefab` |
-| **Not referenced anywhere** | `SettingsUI`, `SettingsSceneButtonsUI`, `DisconnectButtonUI`, `LocalizedTMPFormat`. `DisconnectMenuUI` and `SpawnPanelUI` appear only in the disabled legacy scenes. |
+| **Not referenced anywhere** | `DisconnectButtonUI`, `LocalizedTMPFormat`. `DisconnectMenuUI` and `SpawnPanelUI` appear only in the disabled legacy scenes. |
 
 The NetworkManager uses `Prefab/NetworkPrefabs.asset`, which contains GameMaster, PonyBase, BlockBody, CardPrefab, SessionManager, SpawnPoint and PlayerSession, plus one GUID `e651dbb3…` that was not resolved inside `Assets`. **[Unknown]**
 
@@ -148,6 +149,8 @@ graph TD
 | `PlayerSession.TeamId/ClientId/CharacterObjectId/m_lifeCurrent/m_currentOponentNetworkObjectId` | server | UI, `GameMaster`, `CardWorldViewManager`, `PlayerCardWorldArea` binding |
 | `PlayerSession.m_manaCapacity/m_manaCurrent` (MANA1–MANA3) | server `GameMaster.StartNewGame`, `ApplyRoundManaGrowth`; accepted selection spending through `AddMana` | everyone may read; local play selection checks current mana; `PlayerUI` caches and displays own/opponent current and capacity |
 | `PlayerSession.SelectionRejectedClientRpc` (MANA2/MANA3) | server `HandleConfirmSelectionTurn`, targeted at the session owner | owner only: clears local selection and calls `PlayerUI.OnSelectionRejected` to clear highlights and show a localized two-second mana message |
+| `PlayerSession.HandLimitDiscardClientRpc` (M15) | server DrawCard's hand-limit helper, targeted at the owner | owner only: `PlayerUI.ShowHandLimitDiscard`; the shared active-message state preserves the correct text across locale changes |
+| `PlayerSession.PruneLocalCardSelection` (M15) | local hand rebuild and ordinary ConfirmTurn before ID conversion | removes null/no-longer-held selections; retains committed and still-valid carried-over cards |
 | `PlayerSession.IsCardSelectedToPlay/IsCardSelectedToDiscard` (N18/M1) | read-only queries over existing local selection lists | `PlayerUI.CreateCardView` restores play/discard colors during CardSelection rebuilds, including after RespawnWait |
 | `SessionManager.SessionDataList` (`NetworkList<SessionData>`) | server | all peers → `RebuildDictionary` → `m_playerSessions` |
 | `NetworkCard.m_ownerId/m_location/m_isRotated/m_isFaceUp` | server | `CardWorldViewManager`, `CardViewWorld` |
@@ -168,11 +171,11 @@ graph TD
 | `AppRoot` | `LoginScene` load | Never (DDOL). Duplicates on Login reload self-destroy | [Confirmed] |
 | `NetworkManager` | `Bootstrap.RecreateNetworkManager` at app start, and again before every host/join | `Destroy(old)` after `Shutdown()` | Event subscriptions are redone by `MultiplayerManager.SubscribeNetworkEvents`. [Risk] Other subscribers (`PlayerUI.OnEnable`, `SessionManager.OnNetworkSpawn`) bind to the instance that exists when they enable or spawn. |
 | `GameMaster` | Server, after the GameScene load event, through `RecreateGameMaster` (despawn old, spawn new) | Despawn, or scene unload on shutdown | `Instance` is set in `OnNetworkSpawn` and cleared in `OnNetworkDespawn` |
-| `SessionManager` | In-scene NetworkObject in `GameScene` | Scene unload | `Instance` is set in `Awake`, **never cleared** in `OnDestroy`. [Risk] It can hold a stale reference after leaving `GameScene`. `MultiplayerManager.CleanupAfterDisconnect` calls it before loading the lobby. |
+| `SessionManager` | In-scene NetworkObject in `GameScene` | Scene unload | M16 (2026-10-20): `Awake` sets `Instance`; public `OnDestroy` clears it only when it still refers to this object, then calls NGO base cleanup. Despawn retains the singleton and always unsubscribes the session-list callback, even when NetworkManager is absent. `MultiplayerManager.CleanupAfterDisconnect` calls it before loading the lobby. |
 | `PlayerSession` | `SessionManager.CreateSession` per client | `SessionManager.OnClientDisconnected` (`Despawn`), or `ClearSessionOnDisconnect` | `LocalPlayer` is set by the owner coroutine. `GameMaster.m_players` is not updated on despawn. |
 | Character / blocks | `GameMaster.SpawnPlayers` / `RespawnCharacter` | Death (`DespawnCharacter`), block HP 0, `PlayerSession.ClearSession` | Client-owned: NGO destroys them when the owner disconnects, unless `DontDestroyWithOwner` is set. **[Unknown]** That flag was not inspected. |
 | Cards (84 with today's Common-only database) | `CreateDeck` at `StartNewGame` and server `RefillDeck` on exhaustion | Graveyard cards: `RefillDeck` despawns/destroys and untracks them before deck creation; other cleanup: `DespawnAllCards`, `PlayerSession.ClearHand` | Hand/board cards survive refills. Refill rarity ceiling defaults to Rare; initial ceiling is Unique. `ClearView` on despawn destroys the UI/world views. |
-| `PlayerUI` | In-scene NB in `GameScene` | Scene unload | Re-binds lazily in `Update`. Subscribes to `NetworkManager` callbacks in `OnEnable`. |
+| `PlayerUI` | In-scene NB in `GameScene` | Scene unload | Re-binds lazily in `Update`. Subscribes to `NetworkManager` callbacks in `OnEnable`. N1 (2026-10-20): public `OnDestroy` overrides NGO cleanup, clearing only its own singleton reference before calling `base.OnDestroy`. |
 | `CardWorldViewManager` | `GameScene` | Scene unload (`OnDestroy` → unsubscribe, clear views) | Re-registers when `m_playerSessions.Count` changes (polled in `Update`) |
 
 ---

@@ -267,6 +267,30 @@ MonoBehaviour:
     m_Key: btn_join
     m_Metadata:
       m_Items: []
+  - m_Id: 50130220824199168
+    m_Key: btn_settings
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50130221755334656
+    m_Key: settings_title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50130222338342912
+    m_Key: label_language
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50130222971682816
+    m_Key: lobby_name_unknown
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50130223584051200
+    m_Key: lobby_player_unknown
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50130224179642368
+    m_Key: hand_limit_discard
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

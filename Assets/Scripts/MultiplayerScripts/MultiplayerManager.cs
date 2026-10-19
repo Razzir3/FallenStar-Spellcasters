@@ -25,7 +25,8 @@ public class MultiplayerManager : MonoBehaviour
 {
     #region Valiable
     private Lobby m_currentLobby;
-    private string m_joinCodeInput = "";
+    //todo Join by lobby code is parked (M11). Restore together with JoinLobbyByJoinCode.
+    //private string m_joinCodeInput = "";
 
     public bool m_debugMode = false;
 
@@ -39,6 +40,9 @@ public class MultiplayerManager : MonoBehaviour
 
     private const int m_maxLobbyPlayers = 2;
     private const int m_relayClientCount = 1;
+    // Lobby data values, never shown directly to players.
+    private const string m_lobbyRoleHost = "Host";
+    private const string m_lobbyRoleClient = "Client";
 
     private List<Lobby> m_knowLobbies = new List<Lobby>();
 
@@ -634,7 +638,7 @@ public class MultiplayerManager : MonoBehaviour
                 new CreateLobbyOptions
                 {
                     IsPrivate = false,
-                    Player = CreateLobbyPlayerData("Host"),
+                    Player = CreateLobbyPlayerData(m_lobbyRoleHost),
                     Data =
                         new Dictionary<string, DataObject>
                         {
@@ -653,7 +657,7 @@ public class MultiplayerManager : MonoBehaviour
 
             m_currentLobby =
                 await LobbyService.Instance.CreateLobbyAsync(
-                    "MyLobby",
+                    GetShortPlayerId(),
                     m_maxLobbyPlayers,
                     _options);
 
@@ -867,7 +871,7 @@ public class MultiplayerManager : MonoBehaviour
 
             JoinLobbyByIdOptions _options = new JoinLobbyByIdOptions
             {
-                Player = CreateLobbyPlayerData("Client")
+                Player = CreateLobbyPlayerData(m_lobbyRoleClient)
             };
 
             m_currentLobby = await LobbyService.Instance.JoinLobbyByIdAsync(lobbyId, _options);
@@ -941,6 +945,8 @@ public class MultiplayerManager : MonoBehaviour
             return false;
         }
     }
+    //todo Join by lobby code is parked (M11): no UI calls it yet. See §10 of TASK-M11 before restoring.
+    /*
     public async Task JoinLobbyByJoinCode()
     {
         if (m_isRelayAction)
@@ -985,6 +991,8 @@ public class MultiplayerManager : MonoBehaviour
             m_isRelayAction = false;
         }
     }
+
+    */
 
     async Task<bool> JoinRelay(string joinCode)
     {
@@ -1457,18 +1465,19 @@ public class MultiplayerManager : MonoBehaviour
         return m_currentLobby;
     }
 
+    private string GetShortPlayerId()
+    {
+        string _playerId = AuthenticationService.Instance.PlayerId;
+        if (string.IsNullOrEmpty(_playerId))
+            return UnityEngine.Random.Range(100000, 1000000).ToString();
+
+        return _playerId.Length > 6 ? _playerId.Substring(0, 6) : _playerId;
+    }
+
     private Player CreateLobbyPlayerData(string playerRole)
     {
         string _playerId = AuthenticationService.Instance.PlayerId;
-
-        string _shortId = _playerId;
-
-        if(!string.IsNullOrEmpty(_playerId)&&_playerId.Length>6)
-        {
-            _shortId = _playerId.Substring(0, 6);
-        }
-
-        string _playerName = playerRole + "_" + _shortId;
+        string _playerName = GetShortPlayerId();
 
         return new Player
             (id: _playerId,
