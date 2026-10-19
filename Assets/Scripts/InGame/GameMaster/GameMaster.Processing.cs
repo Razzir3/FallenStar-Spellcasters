@@ -337,11 +337,20 @@ public partial class GameMaster
         if (controller.m_hpCurrent.Value <= 0)
         {
             var _session = controller.GetSession();
+            if (_session == null)
+            {
+                Debug.LogError("UpdatePlayerHP: character has no session.");
+                return;
+            }
             _session.m_lifeCurrent.Value -= 1;
 
             DespawnCharacter(_session);
 
-            _session.GetSpawnPoint().IsOccupied = false;
+            SpawnPoint _spawnPoint = _session.GetSpawnPoint();
+            if (_spawnPoint != null)
+            {
+                _spawnPoint.IsOccupied = false;
+            }
 
             _session.SetCharacter(null);
             _session.CharacterObjectId.Value = 0;

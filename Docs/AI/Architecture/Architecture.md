@@ -133,7 +133,7 @@ Full call chains: [GameLoop.md](GameLoop.md#4-network-message-paths). Summary:
 | Hazard death | `LavaKillZone.OnTrigger*` (server check) → `GameMaster.ServerKillPlayerByHazard` | Server |
 | All visuals: hand UI, board views, announcer, HP text | `PlayerUI`, `CardWorldViewManager`, `GameAnnouncerUI`, `CardViewUI/World`, `PonyColorScript` | Local, driven by NetworkVariable/NetworkList callbacks and polling |
 
-The host is both server and a player. Several server paths use `IsHost` instead of `IsServer` (`GameMaster.Update`, `GameMaster.HandlePlayerControlPackage`). **[Risk]** On a dedicated server, movement input would be dropped silently.
+The host is both server and a player. M4 (2026-10-20) changes `GameMaster.Update` and `HandlePlayerControlPackage` to `IsServer`, so authoritative input handling also runs without a local client. `MultiplayerManager` retains its distinct lobby-host role checks. Dedicated-server deployment remains outside scope.
 
 ---
 

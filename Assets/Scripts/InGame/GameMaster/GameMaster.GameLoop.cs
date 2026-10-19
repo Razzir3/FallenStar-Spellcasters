@@ -264,26 +264,14 @@ public partial class GameMaster
 
                         if (_targetNetworkObjectId == 0)
                         {
-                            switch (_activity.s_targetType)
-                            {
-                                case CardTargetType.None:
-                                case CardTargetType.AllPlayer:
-                                case CardTargetType.AllBlockAnyPlayer:
-                                case CardTargetType.AllBlockSelf:
-                                case CardTargetType.AllBlockOpponent:
-                                case CardTargetType.RandomBlockSelectedPlayer:
-                                case CardTargetType.RandomOpponentBlock:
-                                case CardTargetType.RandomSelfBlock:
-                                    continue;
+                            if (!CardTargetRules.RequiresSelectedTarget(_activity.s_targetType))
+                                continue;
 
-                                default:
-                                    Debug.LogWarning(
-                                        $"Target {i} was not selected for " +
-                                        $"card {_currentCard.NetworkObjectId}.");
+                            Debug.LogWarning(
+                                $"Target {i} was not selected for " +
+                                $"card {_currentCard.NetworkObjectId}.");
 
-                                    _isMessageValid = false;
-                                    break;
-                            }
+                            _isMessageValid = false;
                         }
 
                         if (!_isMessageValid)

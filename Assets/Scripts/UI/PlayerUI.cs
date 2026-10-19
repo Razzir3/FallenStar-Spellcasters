@@ -258,6 +258,22 @@ public class PlayerUI : NetworkBehaviour
 
         ValidateSelectedCard();
     }
+
+    public void OnCardDataReceived(ulong cardNetworkObjectId)
+    {
+        if (m_playerSession == null)
+            return;
+
+        if (m_cardViews.ContainsKey(cardNetworkObjectId))
+            return;
+
+        if (!m_playerSession.m_handCards.Contains(cardNetworkObjectId) &&
+            !m_playerSession.m_boardPlayCards.Contains(cardNetworkObjectId))
+            return;
+
+        UpdateCards(default);
+    }
+
     private void CreateCardView(
     NetworkCard card)
     {

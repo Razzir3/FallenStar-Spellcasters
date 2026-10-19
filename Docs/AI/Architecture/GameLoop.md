@@ -47,6 +47,13 @@
 
 `MultiplayerManager.Update` toggles `DisconnectMenuUI` with Tab while in lobby or game. **[Unknown]** `DisconnectMenuUI` is only placed in the disabled `SampleScene`/`MultiplayerScene`, so Tab probably does nothing in `GameScene`/`LobbyScene`. `DisconnectButtonUI` is not referenced by any scene or prefab.
 
+### Lobby/network error containment (M10, 2026-10-20)
+
+- Startup observes authentication and NetworkManager recreation errors independently, then still attempts event subscription and schedules the existing 15-second heartbeat. Quit, lost-host removal, host/client lobby removal, heartbeat, host start, lobby search, join-by-ID, Relay join and lobby refresh retain their specific service catches and also log unexpected exceptions.
+- Failed host start shuts down a listening NetworkManager and clears the local lobby/menu status. A failed join attempts membership removal and clears local lobby state; exception paths also shut down a listening NetworkManager. The failed-join removal helper contains its own unexpected service exceptions so recovery can finish. Relay reports its failure once on the active join-by-ID path. Join-by-code and the unused DisconnectClient remain separate task/non-goal code.
+- `RefreshCurrentLobby` returns `Task<bool>`: failures retain the cached lobby and return false. The startup coroutine warns before continuing the existing last-known-lobby and two-connected-client checks. `CurrentLobbyUI` continues to await the result without needing a signature change of its own.
+- A thrown GameMaster recreation logs the exception and calls the existing N14 `AbortGameStart("game_master_create_failed")`. Existing timeout reasons, successful call order, result transitions, heartbeat interval and timeouts are retained. Remote cleanup during a service outage remains a best-effort request; local recovery does not establish immediate deletion/removal at UGS.
+
 ---
 
 ## 2. Match bootstrap (server)
@@ -167,8 +174,8 @@ Existing `WaitForRespawnIfNeeded` behavior:
 - Then `RespawnCharacter` spawns a new character, and the phase becomes `ResolveCards` until the pause helper restores the original phase. A finished match skips restoration.
 
 ### 3.3 Death and finish conditions [Confirmed]
-- **HP ≤ 0** (`UpdatePlayerHP`, `Processing.cs:319`): `m_lifeCurrent -= 1`, `DespawnCharacter`, free the spawn point, `CharacterObjectId = 0`.
-- **Lava** (`LavaKillZone.TryKillPlayer`, server): `ServerKillPlayerByHazard` sets HP to 0, then runs `UpdatePlayerHP` and sets `m_externalDeathDetected`.
+- **HP ≤ 0** (`UpdatePlayerHP`): M6 (2026-10-20) logs and returns if the controller has no session. Otherwise the existing order is retained: decrement life, `DespawnCharacter`, free the spawn point when present, clear character and `CharacterObjectId`. The guarded spawn-point fallback remains even when despawning returns early.
+- **Lava** (`LavaKillZone.TryKillPlayer`, server): `ServerKillPlayerByHazard` sets HP to 0, then runs `UpdatePlayerHP` and sets `m_externalDeathDetected`. M3 (2026-10-20) tracks killed `PlayerController` instances instead of recycled network IDs, removing Unity-destroyed entries before checking membership. A new pony instance can therefore die even with the same ID; existing authority, spawned/current-character/session checks remain.
 - **Block HP ≤ 0** (`UpdateBlockHp`): `PlayerSession.DeleteBlock`, then `Despawn`. A character standing on it is expected to fall into the lava. That is physics, **[Unknown]** at runtime.
 - **Game finished** (`IsGameFinished`, `GameLoop.cs:646`): at most one player with `TeamId != -1` has a character or lives > 0.
 - **[Unfinished]** README's "destroy all enemy blocks" win rule is not implemented directly. Losing all blocks only matters at the next respawn, when no spawn point exists and the life is set to −1.
@@ -190,7 +197,7 @@ Existing `WaitForRespawnIfNeeded` behavior:
 
 | Action | Client side | RPC | Server handler | Validation |
 |---|---|---|---|---|
-| Move (WASD) | `PlayerController.Update` → `SendMovementInput`. Requires `CanPlayerMove` **on the client** | `PlayerController.InputServerRpc(PlayerControlPackage)` (owner-only) | `GameMaster.HandlePlayerControlPackage` (enqueue, `IsHost` only) → `Update` → `InputQueueUpdate` → `MoveInputProcessing` + `HPDeltaProcessing` | Direction must be one axis step. **No phase check, and the target client comes from payload `ClientId`.** [Risk] |
+| Move (WASD) | `PlayerController.Update` → `SendMovementInput`. Requires `CanPlayerMove` **on the client** | `PlayerController.InputServerRpc(PlayerControlPackage)` (owner-only) | `GameMaster.HandlePlayerControlPackage` (enqueue, `IsServer` per M4) → server `Update` → `InputQueueUpdate` → `MoveInputProcessing` + `HPDeltaProcessing` | Direction must be one axis step. **No phase check, and the target client comes from payload `ClientId`.** [Risk] |
 | Debug damage (Space) | `SendMovementInput` sets `s_hpDelta = -10` | same | `HPDeltaProcessing` applies any delta | **None.** [Risk] |
 | Select cards to play/discard | `PlayerUI.OnCardClicked` (LMB) / `OnCardAlterClicked` (RMB) → `PlayerSession.SelectCardToPlay/Discard` (local lists) | — | — | Local only |
 | Confirm selection | `PlayerUI.ConfirmTurn` → `PlayerSession.ConfirmTurn` | `PlayerSession.ConfirmTurnServerRpc(play[], discard[], respawnBlock)` | `HandleConfirmTurn` (`PackageManaging.cs:166`), `CardSelection` branch: `HandleConfirmSelectionTurn` (cost and turn order) **and** a raw write of the IDs into `m_boardPlayCards`/`m_boardDiscardCards` | The sender must own the session. The board write is not checked against hand, owner, duplicates or the already-confirmed flag. [Risk] |
@@ -198,12 +205,20 @@ Existing `WaitForRespawnIfNeeded` behavior:
 | Cast card | `ConfirmSendButtonUI1.TryConfirmSend` → `PlayerSession.TryHandlePackage` → `CheckPackage` | `PlayerSession.CardInputServerRpc(CardControllPackage)` | `HandleCardControlPackage` (enqueue) → consumed by `PlayerActionPhase` | Phase, active player, card owner, card on board. Then target checks in the loop. |
 | End turn | `PlayerUI.ConfirmTurn` during `PlayerAction` | `ConfirmTurnServerRpc` | `HandlePlayerActionConfirm` sets `m_activePlayerConfirmedAction` | Must be the active player |
 | Respawn block | `ConfirmTargetButtonUI` during `RespawnWait` → `TryConfirmRespawnBlock`, then `ConfirmTurn` | `ConfirmTurnServerRpc(…, blockId)` | `HandlePlayerRespawnPoint` | Must be the waiting player, own block, spawned, with a spawn point |
-| Card identity | — | `GameMaster.SendCardDataClientRpc(cardId)`: on draw it goes to the owner only, and on board placement it goes to all clients | `NetworkCard.RepairCardData` → `CardDatabase.GetCard` | — |
+| Card identity | — | `GameMaster.SendCardDataClientRpc(cardId)`: on draw it goes to the owner only, and on board placement it goes to all clients | `NetworkCard.RepairCardData` → `CardDatabase.TryGetCard`; then world refresh and `PlayerUI.OnCardDataReceived` (M14) | Missing prerequisites or unknown IDs warn and retain the previous card data |
 
 Notes:
 - `ToPlayerControlPackage` / `SendToClientRpc` are an echo with an empty body (debug).
 - `PlayerController.ReceiveValidatedInput` and its queue are never used. **[Unfinished]**
 - **[Unknown]** `HandlePlayerActionConfirm` compares `PlayerSession != NetworkBehaviourReference` through an implicit conversion. Equality semantics need a runtime check.
+
+### Safe card confirmation and Send (N20, M14, M8; 2026-10-19)
+
+- `CardTargetRules.RequiresSelectedTarget` is shared by client package validation and the server's zero-target check. Its eight optional-target cases are identical to the former server switch; an optional zero target still skips `CheckActivity`. Other target validation, resolution and authority remain unchanged.
+- `PlayerSession.ClearSelectedCard` clears a nonempty confirmed package too. Repeated clearing of an empty package retains its target list. Send requires a nonzero confirmed card ID matching the currently selected card, available card data/activities, enough target slots and a nonzero target for each required activity. A missing GameMaster returns safely. The existing phase permission and successful-send reset remain.
+- Deselecting or entering RespawnWait drops the action card/package. After resuming, select and confirm again. Respawn confirmation continues using its separate block ID and bypasses card-data checks.
+- M14 guards missing data in confirmation, automatic targeting and active-target detection. Automatic targeting writes only up to the smaller activity/target-list count. Card clicks retain both click events while logging a safe placeholder when data is unavailable.
+- M8 resolves an AnyPlayer target through a block by matching replicated `m_teamId` to the local/opponent session's `TeamId`. It does not read the server-only block owner reference. A character whose session has not arrived, or a block with no known team owner, warns and returns false. Server target checks are unchanged.
 
 ---
 
@@ -211,6 +226,7 @@ Notes:
 
 - `PlayerUI.Update` lazily binds to `SessionManager.LocalPlayer`, subscribes to the three NetworkLists and `m_gamePhase`, and writes the HP and life labels every frame.
 - `PlayerUI.UpdateCards` destroys and rebuilds every `CardViewUI` on each list or phase change.
+- M14 also calls `PlayerUI.OnCardDataReceived` after the existing card-data RPC repair/world refresh. It rebuilds only when a local hand/played-board card has no view, covering data arriving after the list delta. Existing views and unrelated/opponent cards do not trigger a rebuild. The current phase still decides which cards are displayed; N18 selection-highlight restoration and selected-card validation are retained.
 - N18/M1: `CreateCardView` restores play/discard colors only in CardSelection, using `PlayerSession.IsCardSelectedToPlay` / `IsCardSelectedToDiscard`. The local lists survive the pause; they remain the source for the eventual confirm package. RespawnWait continues to hide the hand.
 - `CardWorldViewManager` rebuilds the board view layout on every board-list change and every `NetworkCard` location, rotation or face change (`RefreshAllSessions`).
 - `GameAnnouncerUI.Update` builds the phase, timer and active-player text every frame through new `LocalizedString` instances.
@@ -242,7 +258,7 @@ These are documented, not fixed. Each needs separate verification.
 | L9 | An opponent disconnect is not handled by `GameMaster`. Destroyed sessions stay in `m_players` | `MultiplayerManager.OnClientDisconnected`, `SessionManager.OnClientDisconnected` | Undefined end state. See [Dependencies.md](Dependencies.md#5-regression-points). |
 | L10 | `IsGameFinished()` has the side effect `FindLostPlayer()`, which sets `m_externalDeathDetected` | `GameLoop.cs:679` | Hidden coupling. The death flag is re-raised by every finish check. |
 | L11 | `CardSelectionPhase` selects but does not move cards. Unselected cards stay in hand indefinitely, and there is no hand limit | `CardSelectionPhase`, `DrawCardPhase` | Unbounded hand growth (design question) |
-| L12 | `LavaKillZone.m_killedCharacterIds` is never cleared, with `RecycleNetworkIds: 1` (120 s delay) | `LavaKillZone.cs` | A respawned character with a recycled id may be immune to lava |
+| L12 | Resolved by M3 (2026-10-20): lava uses an instance set and prunes Unity-destroyed entries | `LavaKillZone.cs` | Network ID reuse no longer suppresses a different pony instance; actual physics/recycled-ID Play Mode verification remains |
 
 ## 7. Unknown, needs Play Mode
 

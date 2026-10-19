@@ -10,8 +10,8 @@ public class LavaKillZone : MonoBehaviour
     [SerializeField]
     private bool m_debugMode = false;
 
-    private readonly HashSet<ulong> m_killedCharacterIds =
-        new HashSet<ulong>();
+    private readonly HashSet<PlayerController> m_killedCharacters =
+        new HashSet<PlayerController>();
 
     #endregion
 
@@ -65,11 +65,10 @@ public class LavaKillZone : MonoBehaviour
         if (!_playerController.NetworkObject.IsSpawned)
             return;
 
-        ulong _characterNetworkObjectId =
-            _playerController.NetworkObjectId;
+        m_killedCharacters.RemoveWhere(c => c == null);
 
-        if (m_killedCharacterIds.Contains(
-                _characterNetworkObjectId))
+        if (m_killedCharacters.Contains(
+                _playerController))
         {
             return;
         }
@@ -83,8 +82,8 @@ public class LavaKillZone : MonoBehaviour
         if (_session.GetCharacter() != _playerController)
             return;
 
-        m_killedCharacterIds.Add(
-            _characterNetworkObjectId);
+        m_killedCharacters.Add(
+            _playerController);
 
         if (m_debugMode)
         {

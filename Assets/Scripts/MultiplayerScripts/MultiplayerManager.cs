@@ -88,16 +88,30 @@ public class MultiplayerManager : MonoBehaviour
 
         DontDestroyOnLoad(gameObject);
 
-        if(AuthManager.Instance != null)
+        try
         {
-            await AuthManager.Instance.Initialize();
+            if(AuthManager.Instance != null)
+            {
+                await AuthManager.Instance.Initialize();
+            }
+            else
+            {
+                Debug.LogError("MultiplayerManager: No auth manager");
+            }
         }
-        else
+        catch (System.Exception e)
         {
-            Debug.LogError("MultiplayerManager: No auth manager");
+            Debug.LogException(e);
         }
 
-        await m_bootsTrap.RecreateNetworkManager();
+        try
+        {
+            await m_bootsTrap.RecreateNetworkManager();
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogException(e);
+        }
 
         SubscribeNetworkEvents();
 
@@ -133,6 +147,10 @@ public class MultiplayerManager : MonoBehaviour
         catch (LobbyServiceException e)
         {
             Debug.LogError(e.Message);
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogException(e);
         }
     }
     private void Update()
@@ -278,6 +296,10 @@ public class MultiplayerManager : MonoBehaviour
                             "This is acceptable if lobby was deleted by host. " +
                             e.Message);
                     }
+                }
+                catch (System.Exception e)
+                {
+                    Debug.LogException(e);
                 }
             }
             if(GameMaster.Instance != null)
@@ -483,13 +505,16 @@ public class MultiplayerManager : MonoBehaviour
                     Debug.Log("Lobby does not exist");
                 }
             }
-
-            m_currentLobby = null;
         }
         catch (LobbyServiceException e)
         {
             Debug.LogError(e);
         }
+        catch (System.Exception e)
+        {
+            Debug.LogException(e);
+        }
+        m_currentLobby = null;
         if(GameMaster.Instance != null)
             GameMaster.Instance.ClearupAfterDisconnect();
         if(NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening)
@@ -520,6 +545,10 @@ public class MultiplayerManager : MonoBehaviour
         {
             Debug.LogError(e);
         }
+        catch (System.Exception e)
+        {
+            Debug.LogException(e);
+        }
         if(GameMaster.Instance != null)
             GameMaster.Instance.ClearupAfterDisconnect();
         m_currentMultiplayerStatus = MultiplayerStatus.InMenuStatus;
@@ -530,15 +559,29 @@ public class MultiplayerManager : MonoBehaviour
     }
     async void HearthbeatLobby()
     {
+        if (NetworkManager.Singleton == null)
+            return;
+
         if (NetworkManager.Singleton.IsHost)
         {
             if (m_currentLobby != null && m_currentMultiplayerStatus == MultiplayerStatus.InLobbyStatus)
             {
 
-                await LobbyService.Instance.SendHeartbeatPingAsync(m_currentLobby.Id);
-                if (m_debugMode)
+                try
                 {
-                    Debug.Log("Lobby Heartbeat sent");
+                    await LobbyService.Instance.SendHeartbeatPingAsync(m_currentLobby.Id);
+                    if (m_debugMode)
+                    {
+                        Debug.Log("Lobby Heartbeat sent");
+                    }
+                }
+                catch (LobbyServiceException e)
+                {
+                    Debug.LogWarning(e.Message);
+                }
+                catch (System.Exception e)
+                {
+                    Debug.LogException(e);
                 }
 
             }
@@ -629,11 +672,26 @@ public class MultiplayerManager : MonoBehaviour
         catch(LobbyServiceException e)
         {
             Debug.LogError(e);
+            ResetAfterFailedHostStart();
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogException(e);
+            ResetAfterFailedHostStart();
         }
         finally
         {
             m_isRelayAction = false;
         }
+    }
+
+    private void ResetAfterFailedHostStart()
+    {
+        if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening)
+            NetworkManager.Singleton.Shutdown();
+
+        m_currentLobby = null;
+        m_currentMultiplayerStatus = MultiplayerStatus.InMenuStatus;
     }
 
     async Task<string> CreateRelay()
@@ -778,6 +836,10 @@ public class MultiplayerManager : MonoBehaviour
         {
             Debug.LogError(e);
         }
+        catch (System.Exception e)
+        {
+            Debug.LogException(e);
+        }
 
         return m_knowLobbies;
     }
@@ -813,6 +875,7 @@ public class MultiplayerManager : MonoBehaviour
             if(m_currentLobby.Data == null||!m_currentLobby.Data.ContainsKey("joinCode"))
             {
                 Debug.LogError("SelectedLobby does not have joinCode");
+                await LeaveCurrentLobbyAfterFailedJoin();
                 return;
             }
 
@@ -822,7 +885,6 @@ public class MultiplayerManager : MonoBehaviour
             bool _relayJoined = await JoinRelay(_joinCode);
             if(!_relayJoined)
             {
-                Debug.LogError("Failed to join Relay");
                 await LeaveCurrentLobbyAfterFailedJoin();
                 return;
             }
@@ -839,6 +901,18 @@ public class MultiplayerManager : MonoBehaviour
         catch(LobbyServiceException e)
         {
             Debug.LogError(e);
+            if (m_currentLobby != null)
+                await LeaveCurrentLobbyAfterFailedJoin();
+            if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening)
+                NetworkManager.Singleton.Shutdown();
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogException(e);
+            if (m_currentLobby != null)
+                await LeaveCurrentLobbyAfterFailedJoin();
+            if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening)
+                NetworkManager.Singleton.Shutdown();
         }
         finally
         {
@@ -846,18 +920,25 @@ public class MultiplayerManager : MonoBehaviour
         }
     }
 
-    public async Task RefreshCurrentLobby()
+    public async Task<bool> RefreshCurrentLobby()
     {
         if (m_currentLobby == null)
-            return;
+            return false;
 
         try
         {
             m_currentLobby = await LobbyService.Instance.GetLobbyAsync(m_currentLobby.Id);
+            return true;
         }
         catch (LobbyServiceException e)
         {
             Debug.LogError(e);
+            return false;
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogException(e);
+            return false;
         }
     }
     public async Task JoinLobbyByJoinCode()
@@ -950,8 +1031,15 @@ public class MultiplayerManager : MonoBehaviour
         catch (RelayServiceException e)
         {
             Debug.LogError(e);
-            return false;
         }
+        catch (System.Exception e)
+        {
+            Debug.LogException(e);
+        }
+
+        if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening)
+            NetworkManager.Singleton.Shutdown();
+        return false;
     }
 
     private async Task<bool> WaitForLocalClientConnected(float timeoutSeconds)
@@ -1029,8 +1117,15 @@ public class MultiplayerManager : MonoBehaviour
                 Debug.LogWarning("Leave current lobby after failed join" + e.Message);
             }
         }
-
-        m_currentLobby = null;
+        catch (System.Exception e)
+        {
+            Debug.LogException(e);
+        }
+        finally
+        {
+            m_currentLobby = null;
+            m_currentMultiplayerStatus = MultiplayerStatus.InMenuStatus;
+        }
     }
 
     public async Task DisconnectClient()
@@ -1144,7 +1239,7 @@ public class MultiplayerManager : MonoBehaviour
 
     private IEnumerator RefreshCurrentLobbyCoroutine()
     {
-        Task _refreshTask = RefreshCurrentLobby();
+        Task<bool> _refreshTask = RefreshCurrentLobby();
 
         while(!_refreshTask.IsCompleted)
         {
@@ -1154,6 +1249,10 @@ public class MultiplayerManager : MonoBehaviour
         if(_refreshTask.IsFaulted)
         {
             Debug.LogError(_refreshTask.Exception);
+        }
+        else if (!_refreshTask.Result)
+        {
+            Debug.LogWarning("MultiplayerManager: lobby refresh failed, using the last known lobby data.");
         }
     }
 
@@ -1216,7 +1315,16 @@ public class MultiplayerManager : MonoBehaviour
             return;
         }
 
-        await m_bootsTrap.RecreateGameMaster();
+        try
+        {
+            await m_bootsTrap.RecreateGameMaster();
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogException(e);
+            AbortGameStart("game_master_create_failed");
+            return;
+        }
 
         m_gameMaster =
             m_bootsTrap.m_gameMasterInstance;

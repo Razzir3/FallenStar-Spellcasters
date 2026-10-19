@@ -736,6 +736,11 @@ public class PlayerSession : NetworkBehaviour
     public void ClearSelectedCard()
     {
         m_selectedCard = null;
+
+        if (m_currentCardControllPackage.CardNetworkObjectId != 0)
+        {
+            m_currentCardControllPackage = CardControllPackage.CreateEmpty(0);
+        }
     }
 
     private void ConfirmSelectTarget(
@@ -784,6 +789,12 @@ public class PlayerSession : NetworkBehaviour
         if (m_selectedCard == null)
         {
             Debug.LogWarning("No card selected for control package.");
+            return false;
+        }
+
+        if (m_selectedCard.m_cardData == null || m_selectedCard.m_cardData.m_activities == null)
+        {
+            Debug.LogWarning("Selected card has no card data yet.");
             return false;
         }
 
@@ -855,11 +866,23 @@ public class PlayerSession : NetworkBehaviour
                         case CardTargetType.AnyPlayer:
                             if (m_currentSelectedCharacter != null)
                             {
-                                ConfirmSelectTarget(i, m_currentSelectedCharacter.GetSession().NetworkObjectId);
+                                PlayerSession _targetSession = m_currentSelectedCharacter.GetSession();
+                                if (_targetSession == null)
+                                {
+                                    Debug.LogWarning("Selected character has no session yet.");
+                                    return false;
+                                }
+                                ConfirmSelectTarget(i, _targetSession.NetworkObjectId);
                             }
                             else if (m_currentSelectedBlock != null)
                             {
-                                ConfirmSelectTarget(i, m_currentSelectedBlock.GetSession().NetworkObjectId);
+                                PlayerSession _blockOwner = GetBlockOwnerSession(m_currentSelectedBlock, _oponent);
+                                if (_blockOwner == null)
+                                {
+                                    Debug.LogWarning("Selected block has no known owner.");
+                                    return false;
+                                }
+                                ConfirmSelectTarget(i, _blockOwner.NetworkObjectId);
                             }
                             else
                             {
@@ -925,6 +948,23 @@ public class PlayerSession : NetworkBehaviour
         }
         return true;    
     }
+
+    private PlayerSession GetBlockOwnerSession(BlockController block, PlayerSession opponent)
+    {
+        if (block == null)
+            return null;
+
+        int _blockTeam = block.m_teamId.Value;
+
+        if (_blockTeam == TeamId.Value)
+            return this;
+
+        if (opponent != null && _blockTeam == opponent.TeamId.Value)
+            return opponent;
+
+        return null;
+    }
+
     private bool TryConfirmRespawnBlock()
     {
         if (GameMaster.Instance == null)
@@ -1021,6 +1061,9 @@ public class PlayerSession : NetworkBehaviour
 
     public void TryHandlePackage()
     {
+        if (GameMaster.Instance == null)
+            return;
+
         var package = m_currentCardControllPackage;
         if(CheckPackage(package))
         {
@@ -1033,23 +1076,37 @@ public class PlayerSession : NetworkBehaviour
     }
     private bool CheckPackage(CardControllPackage package)
     {
-        if (package.CardNetworkObjectId != 0)
+        if (package.CardNetworkObjectId == 0)
         {
-            var _targetData = m_selectedCard.m_cardData.m_activities;
-            for (int i = 0; i < _targetData.Length; i++)
-            {
-                if (
-                    !(_targetData[i].s_targetType == CardTargetType.AnyPlayer||
-                    _targetData[i].s_targetType == CardTargetType.AnyPlayerBlock||
-                    _targetData[i].s_targetType == CardTargetType.OpponentBlock||
-                    _targetData[i].s_targetType == CardTargetType.OpponentPlayer||
-                    _targetData[i].s_targetType == CardTargetType.RandomBlockSelectedPlayer||
-                    _targetData[i].s_targetType == CardTargetType.None)
-                    && package.TargetNetworkObjectId[i] == 0)
-                {
-                    return false;
-                }
-            }
+            Debug.LogWarning("Send ignored: no card target was confirmed.");
+            return false;
+        }
+
+        if (m_selectedCard == null || m_selectedCard.NetworkObjectId != package.CardNetworkObjectId)
+        {
+            m_currentCardControllPackage = CardControllPackage.CreateEmpty(0);
+            Debug.LogWarning("Send ignored: select the card and confirm the target again.");
+            return false;
+        }
+
+        if (m_selectedCard.m_cardData == null || m_selectedCard.m_cardData.m_activities == null)
+        {
+            Debug.LogWarning("Send ignored: selected card has no card data yet.");
+            return false;
+        }
+
+        var _targetData = m_selectedCard.m_cardData.m_activities;
+        if (package.TargetNetworkObjectId == null || package.TargetNetworkObjectId.Count < _targetData.Length)
+        {
+            Debug.LogWarning("Send ignored: control package has too few targets.");
+            return false;
+        }
+
+        for (int i = 0; i < _targetData.Length; i++)
+        {
+            if (CardTargetRules.RequiresSelectedTarget(_targetData[i].s_targetType) &&
+                package.TargetNetworkObjectId[i] == 0)
+                return false;
         }
         return true;
     }
@@ -1060,7 +1117,12 @@ public class PlayerSession : NetworkBehaviour
     //todo
     private void AutoSelectTarget()
     {
-        for(int i = 0;i< m_selectedCard.m_cardData.m_activities.Length;i++)
+        if (m_selectedCard == null || m_selectedCard.m_cardData == null ||
+            m_selectedCard.m_cardData.m_activities == null)
+            return;
+
+        for(int i = 0;i< Mathf.Min(m_selectedCard.m_cardData.m_activities.Length,
+            m_currentCardControllPackage.TargetNetworkObjectId.Count);i++)
         {
             switch(m_selectedCard.m_cardData.m_activities[i].s_targetType)
             {

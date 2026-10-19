@@ -37,6 +37,9 @@ public partial class GameMaster
         {
             CardWorldViewManager.Instance.RefreshAllSessions();
         }
+
+        if (PlayerUI.Instance != null)
+            PlayerUI.Instance.OnCardDataReceived(cardNetworkObjectId);
     }
     /// <summary>
     /// Handles a player control package received from a client. This method is called on the server and processes the input package, adding it to the input queue for further processing.
@@ -47,7 +50,7 @@ public partial class GameMaster
     {
         try
         {
-            if (!IsHost)
+            if (!IsServer)
             {
                 if (m_debugMode) Debug.Log("ItsNotServer GM");
                 return false;

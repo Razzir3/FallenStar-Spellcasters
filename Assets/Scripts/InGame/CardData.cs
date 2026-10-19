@@ -63,6 +63,28 @@
         public int s_value;
     }
 
+    public static class CardTargetRules
+    {
+        // Same rule as the server check in GameMaster.PlayerActionPhase: these types accept target 0.
+        public static bool RequiresSelectedTarget(CardTargetType targetType)
+        {
+            switch (targetType)
+            {
+                case CardTargetType.None:
+                case CardTargetType.AllPlayer:
+                case CardTargetType.AllBlockAnyPlayer:
+                case CardTargetType.AllBlockSelf:
+                case CardTargetType.AllBlockOpponent:
+                case CardTargetType.RandomBlockSelectedPlayer:
+                case CardTargetType.RandomOpponentBlock:
+                case CardTargetType.RandomSelfBlock:
+                    return false;
+                default:
+                    return true;
+            }
+        }
+    }
+
     public enum ActivityEffect
     {
         None,

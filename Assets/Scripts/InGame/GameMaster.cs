@@ -139,8 +139,8 @@ public partial class GameMaster : NetworkBehaviour
             return;
         if (!NetworkManager.Singleton.IsListening)
             return;
-        //Only Server can handle the input packages, so we check if we are the host before processing the queue
-        if (!IsHost) return;
+        // Only the server handles input packages.
+        if (!IsServer) return;
         
         InputQueueUpdate();
         //CardMessageQueueUpdate();

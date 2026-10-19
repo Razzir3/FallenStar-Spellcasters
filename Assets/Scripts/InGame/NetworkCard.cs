@@ -142,6 +142,9 @@ public class NetworkCard : NetworkBehaviour
 
     public bool CheckActiveTaergetSelection()
     {
+        if (m_cardData == null || m_cardData.m_activities == null)
+            return false;
+
         for(int i = 0;i<m_cardData.m_activities.Length;i++)
         {
             if (m_cardData.m_activities[i].s_targetType == CardTargetType.AnyPlayer||
@@ -159,8 +162,32 @@ public class NetworkCard : NetworkBehaviour
     public void RepairCardData(string cardId)
     {
         Debug.Log("RepairCalled");
+        if (GameMaster.Instance == null)
+        {
+            Debug.LogWarning("RepairCardData: GameMaster.Instance is null.");
+            return;
+        }
+
+        if (string.IsNullOrEmpty(cardId))
+        {
+            Debug.LogWarning("RepairCardData: card id is empty.");
+            return;
+        }
+
         var _cardDatabase = GameMaster.Instance.GetCardDatabase();
-        m_cardData = _cardDatabase.GetCard(cardId);
+        if (_cardDatabase == null)
+        {
+            Debug.LogWarning("RepairCardData: card database is null.");
+            return;
+        }
+
+        if (!_cardDatabase.TryGetCard(cardId, out CardData _data))
+        {
+            Debug.LogWarning($"RepairCardData: card id '{cardId}' was not found.");
+            return;
+        }
+
+        m_cardData = _data;
     }
     private void OnLocationChanged(
     CardLocation previousValue,
