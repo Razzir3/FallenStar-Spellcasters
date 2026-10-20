@@ -38,6 +38,9 @@ public class PlayerSession : NetworkBehaviour
     private SessionRole m_playerRole = SessionRole.Player;
 
     private int m_lifeMax = 0;
+    private ulong m_pendingClientId;
+    private int m_pendingTeamId;
+    private bool m_hasPendingInit;
     public NetworkVariable<int> m_lifeCurrent = new NetworkVariable<int>(1, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
     public NetworkVariable<int> m_manaCapacity = new NetworkVariable<int>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
     public NetworkVariable<int> m_manaCurrent = new NetworkVariable<int>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
@@ -175,12 +178,13 @@ public class PlayerSession : NetworkBehaviour
         if (GameMaster.Instance == null)
             return;
 
-        if (GameMaster.Instance.m_gamePhase.Value == GamePhase.RespawnWait)
+        GamePhase _intended = GameMaster.Instance.m_gamePhase.Value;
+        if (_intended == GamePhase.RespawnWait)
         {
             if (!TryConfirmRespawnBlock())
                 return;
 
-            ConfirmTurnServerRpc(new ulong[0],new ulong[0],m_respawnBlockNetworkId);
+            ConfirmTurnServerRpc(_intended,new ulong[0],new ulong[0],m_respawnBlockNetworkId);
 
             m_respawnBlockNetworkId = 0;
 
@@ -194,6 +198,7 @@ public class PlayerSession : NetworkBehaviour
         m_selectedCardsToDiscardID =ConvertCardsToNetworkId(m_selectedCardsToDiscard);
 
         ConfirmTurnServerRpc(
+            _intended,
             m_selectedCardsToPlayID,
             m_selectedCardsToDiscardID,
             m_respawnBlockNetworkId);
@@ -203,14 +208,19 @@ public class PlayerSession : NetworkBehaviour
 
     [ServerRpc]
     private void ConfirmTurnServerRpc(
+        GamePhase intendedPhase,
         ulong[] selectedCardsToPlayID,
         ulong[] selectedCardsToDiscardID,
         ulong respawnBlockNetworkId,
         ServerRpcParams rpcParams = default)
     {
+        if (GameMaster.Instance == null)
+            return;
+
         GameMaster.Instance.HandleConfirmTurn(
             rpcParams.Receive.SenderClientId,
             this,
+            intendedPhase,
             selectedCardsToPlayID,
             selectedCardsToDiscardID,
             respawnBlockNetworkId
@@ -593,6 +603,9 @@ public class PlayerSession : NetworkBehaviour
     {
         base.OnNetworkSpawn();
 
+        if (IsServer && m_hasPendingInit)
+            ApplyPendingInit();
+
         if (IsOwner)
         {
             StartCoroutine(RegisterLocalPlayerWhenReady());
@@ -635,19 +648,30 @@ public class PlayerSession : NetworkBehaviour
     }
     public void Initialize(ulong clientId, int teamId)
     {
-        ClientId.Value = clientId;
-        if (m_debugMode)
-        {
-            Debug.Log("Player session initialized for client: " + clientId);
-        }
-        TeamId.Value = teamId;
-        if (m_debugMode)
-        {
-            Debug.Log("Assigned team " + TeamId.Value + " to client: " + clientId);
-        }
-
+        m_pendingClientId = clientId;
+        m_pendingTeamId = teamId;
+        m_hasPendingInit = true;
         m_lifeMax = 3;
+
+        if (IsServer && IsSpawned)
+            ApplyPendingInit();
+
+        if (m_debugMode)
+        {
+            Debug.Log("Player session initialized for client: " + m_pendingClientId);
+        }
+        if (m_debugMode)
+        {
+            Debug.Log("Assigned team " + m_pendingTeamId + " to client: " + m_pendingClientId);
+        }
+    }
+
+    private void ApplyPendingInit()
+    {
+        ClientId.Value = m_pendingClientId;
+        TeamId.Value = m_pendingTeamId;
         m_lifeCurrent.Value = m_lifeMax;
+        m_hasPendingInit = false;
     }
 
 
@@ -658,22 +682,9 @@ public class PlayerSession : NetworkBehaviour
 
     public PlayerController GetCharacter()
     {
-        if(m_currentCharacter == null)
-        {
-            if (NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(CharacterObjectId.Value, out NetworkObject _obj))
-            {
-                m_currentCharacter = _obj.GetComponent<PlayerController>();
-                if (IsServer)
-                {
-                    CharacterObjectId.Value = m_currentCharacter.GetComponent<NetworkObject>().NetworkObjectId;
-                }
-            }
-            else
-            {
-                if(m_debugMode)Debug.Log("No Character");
-                return null;
-            }
-        }
+        if (m_currentCharacter != null)
+            return m_currentCharacter;
+
         if(CharacterObjectId.Value == 0)
         {
             if(m_debugMode)
@@ -682,6 +693,20 @@ public class PlayerSession : NetworkBehaviour
             }
             return null;
         }
+
+        if (NetworkManager.Singleton == null || NetworkManager.Singleton.SpawnManager == null)
+            return null;
+
+        if (!NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(CharacterObjectId.Value, out NetworkObject _obj))
+        {
+            if (m_debugMode) Debug.Log("No Character");
+            return null;
+        }
+
+        if (!_obj.TryGetComponent(out PlayerController _character))
+            return null;
+
+        m_currentCharacter = _character;
         return m_currentCharacter;
     }
 

@@ -174,11 +174,12 @@ public partial class GameMaster
     /// </summary>
     /// <param name="senderClientId">The client ID of the sender.</param>
     /// <param name="playerSession">The player session of the sender.</param>
+    /// <param name="intendedPhase">The phase the player sent the confirmation for.</param>
     /// <param name="playCardNetworkIds">The network IDs of the cards to play.</param>
     /// <param name="discardCardNetworkIds">The network IDs of the cards to discard.</param>
     /// <param name="respawnBlockNetworkId">The network ID of the respawn block.</param>
     public void HandleConfirmTurn(ulong senderClientId, PlayerSession playerSession,
-                                  ulong[] playCardNetworkIds, ulong[] discardCardNetworkIds, ulong respawnBlockNetworkId)
+                                  GamePhase intendedPhase, ulong[] playCardNetworkIds, ulong[] discardCardNetworkIds, ulong respawnBlockNetworkId)
     {
         if (!IsServer)
         {
@@ -201,6 +202,13 @@ public partial class GameMaster
                         $"Confirm sender {senderClientId} does not own session {playerSession.NetworkObjectId}.");
                 }
             }
+            return;
+        }
+
+        if (!IsConfirmForCurrentPhase(intendedPhase, m_gamePhase.Value))
+        {
+            if (m_debugMode)
+                Debug.Log($"Confirm ignored: sent for {intendedPhase}, server is in {m_gamePhase.Value}.");
             return;
         }
 
@@ -251,6 +259,21 @@ public partial class GameMaster
                 break;
         }
 
+    }
+    private static bool IsConfirmForCurrentPhase(GamePhase intendedPhase, GamePhase currentPhase)
+    {
+        switch (intendedPhase)
+        {
+            case GamePhase.CardSelection:
+                return currentPhase == GamePhase.CardSelection;
+            case GamePhase.PlayerAction:
+            case GamePhase.ResolveCards:
+                return currentPhase == GamePhase.PlayerAction || currentPhase == GamePhase.ResolveCards;
+            case GamePhase.RespawnWait:
+                return currentPhase == GamePhase.RespawnWait;
+            default:
+                return false;
+        }
     }
     //Todo
     //Rework?

@@ -22,7 +22,7 @@ using UnityEngine.InputSystem;
 
         public NetworkVariable<int> m_playerTeam = new NetworkVariable<int>(-1, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
-        private Queue<ToPlayerControlPackage> m_inputQueue;
+        private Queue<ToPlayerControlPackage> m_inputQueue = new();
 
         [SerializeField] private Renderer m_meshRenderer;
     private Color m_defaultColor;
@@ -60,6 +60,9 @@ using UnityEngine.InputSystem;
 
     public override void OnNetworkSpawn()
         {
+            if (IsServer)
+                Init();
+
             StartCoroutine(DelayedInit());
 
             if(m_debugMode)
@@ -95,10 +98,6 @@ using UnityEngine.InputSystem;
 
             if (m_debugMode) Debug.Log($"FINAL OwnerClientId: {OwnerClientId}");
             m_ponyColorScript = GetComponent<PonyColorScript>();
-        if (IsServer)
-            {
-                Init();
-            }
 
             while(GetSession() == null)
             {
@@ -133,8 +132,6 @@ using UnityEngine.InputSystem;
 
             m_hpCurrent.Value = m_hpMax.Value;
 
-            m_inputQueue = new Queue<ToPlayerControlPackage>();
-            
     }
         private void Update()
         {

@@ -113,7 +113,7 @@ graph TD
 | `MultiplayerManager` → `SessionManager` | `Instance.m_playerSessions.Count`, `ClearSessionOnDisconnect` | `StartGameAfterSceneReady`, `CleanupAfterDisconnect` |
 | `MultiplayerManager` → `SceneFlowManager` | `LoadGameSceneNetwork`, `MarkNetworkSceneLoadingFinished`, `LoadLobbyScene`, `GameSceneName` | `StartGameSceneWhenReady`, `OnLoadEventCompleted`, `CleanupAfterDisconnect` |
 | `GameMaster` → `MultiplayerManager` | writes `m_currentMultiplayerStatus` | `GameMaster.Spawn.cs` `SpawnPlayers` (**bidirectional coupling**) |
-| `GameMaster` → `SessionManager` | `Instance.m_playerSessions`, `LocalPlayer` | `StartNewGame`, `ClearupAfterDisconnect`, `Spawn*`, `FindLostPlayer`, `FindSessionForCardWorldArea` |
+| `GameMaster` → `SessionManager` | `Instance.m_playerSessions` | `StartNewGame`, `ClearupAfterDisconnect`, `Spawn*`, `FindSessionForCardWorldArea`; L3 removes FindLostPlayer and its local-player read |
 | `GameMaster` → `PlayerUI` / `CardWorldViewManager` | `PlayerUI.Instance.ClearLocalUI()`, `CardWorldViewManager.Instance.ClearAllWorldViews()/RefreshAllSessions()` | `ClearupAfterDisconnect`, `SendCardDataClientRpc` (**server rules → client UI**) |
 | `GameMaster` → `PlayerSession` | the NetworkLists, `m_lifeCurrent`, `TeamId`, `GetCharacter/SetCharacter`, `SetSpawnPoint`, `AddBlock/DeleteBlock`, `ClearSession`, `SetOponent`, `AddCard` | throughout |
 | `GameMaster` → `PlayerController` | `m_hpCurrent/m_hpMax`, `GetRigidbody`, `Initialize`, `SessionObjectId` | `Processing.cs`, `Spawn.cs` |
@@ -143,6 +143,8 @@ graph TD
 | Contract | Writer | Readers |
 |---|---|---|
 | `GameMaster.m_gamePhase` | server `GameLoop` | `PlayerUI` (OnValueChanged), `GameAnnouncerUI` (poll), `PlayerSession` (poll), `GameMaster.Can*` |
+| `GameMaster.m_isInputLocked` (N3) | server Update mirrors resolving/respawn flags only on a change; spawned-server reset on cleanup/new game | clients' movement/selection/target gates; the server uses its live flags |
+| `GameMaster.m_selectionPhaseId` (N26) | server increments once at each CardSelectionPhase start; resets on new game; unchanged during respawn resume | local PlayerUI clears both local selection lists and rebuilds; balanced subscriptions on bind/cleanup/destroy |
 | `GameMaster.m_timer` | server phase/respawn coroutines; N18/M1 pause helper saves/restores the interrupted phase's elapsed value | `GameAnnouncerUI` |
 | `GameMaster.m_activePlayer` / `m_waitingRespawnPlayer` (`NetworkBehaviourReference`) | server | `GameAnnouncerUI`, `GameMaster.Can*`, `IsWaitingRespawnPlayer` |
 | `PlayerSession.m_handCards/m_boardPlayCards/m_boardDiscardCards` | server | `PlayerUI` (local session only), `CardWorldViewManager` (all sessions board), `GameMaster` |
@@ -156,9 +158,11 @@ graph TD
 | `NetworkCard.m_ownerId/m_location/m_isRotated/m_isFaceUp` | server | `CardWorldViewManager`, `CardViewWorld` |
 | `NetworkCard.m_cardData` | **server direct field + `SendCardDataClientRpc` per client** | every view, `GameMaster`, `PlayerSession` |
 | `PlayerController.m_hpCurrent/m_hpMax/m_playerTeam/SessionObjectId` | server | `PlayerUI`, `PonyColorScript` via `PlayerController` |
-| `BlockController.m_teamId/m_blockHP/TeamId` (two team fields) | server | `PlayerSession`, `GameMaster` |
+| `BlockController.m_teamId/m_blockHP` (L4) | server | `PlayerSession`, `GameMaster`; SetSession and fallback GetSpawn also use m_teamId |
 
-**[Risk]** `BlockController` has two team NetworkVariables: `m_teamId`, set in `Initialize`, and `TeamId`, set in `SetSession`. Validation reads `m_teamId`, while `GetSpawn` reads `TeamId`. They are currently set to the same value, but they could diverge.
+L4 (2026-10-20) removes the duplicate BlockController.TeamId NetworkVariable and redirects its actual SetSession/GetSpawn uses to m_teamId. This removes the NGO Inspector's duplicate nicified-name collision. BlockBody.prefab is unchanged. N3/N26 add GameMaster NetworkVariables and N21 changes the confirm RPC signature, so peers must use the same updated build.
+
+N2 (2026-10-20): SessionManager keeps Initialize before SpawnWithOwnership. Initialize stores pending IDs and the plain maximum-life value; server OnNetworkSpawn applies IDs/lives after NGO variable initialization, before the initial spawn message is sent. Spawned reinitialization applies immediately on the server. N22 likewise initializes pony HP 100/100 and speed 3 synchronously in server OnNetworkSpawn, retaining deferred session-dependent materials. N7 GetCharacter returns a cached controller or safely looks up a nonzero spawned ID without writing that ID. Actual first-spawn values on a remote client remain a manual verification requirement.
 
 `BlockController.m_ownerSession` and `PlayerSession.m_blocks` remain server-only. M8 removes the client `BlockController.GetSession()` read from AnyPlayer confirmation: the private `GetBlockOwnerSession` matches replicated `m_teamId` to local/opponent `TeamId`. Character targeting checks a pending null session. Pure-client target delivery still needs Play Mode verification.
 

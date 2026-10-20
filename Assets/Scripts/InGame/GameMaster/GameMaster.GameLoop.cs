@@ -7,6 +7,8 @@ using UnityEngine;
 public partial class GameMaster
 {
     #region BlockTurn
+    private bool IsInputLocked() => IsServer ? (m_isResolvingCards || m_isWaitingRespawn) : m_isInputLocked.Value;
+
     /// <summary>
     /// Checks if the player can move during their turn.
     /// </summary>
@@ -15,7 +17,7 @@ public partial class GameMaster
     public bool CanPlayerMove(PlayerSession session)
     {
         return m_gamePhase.Value == GamePhase.PlayerAction && m_activePlayer.Value.TryGet(out PlayerSession player) && player == session
-            && !m_isResolvingCards && !m_isWaitingRespawn;
+            && !IsInputLocked();
     }
     /// <summary>
     /// Checks if the player can select card targets during their turn.
@@ -25,7 +27,7 @@ public partial class GameMaster
     public bool CanPlayerSelectCardTargets(PlayerSession session)
     {
         return m_gamePhase.Value == GamePhase.PlayerAction && m_activePlayer.Value.TryGet(out PlayerSession player) && player == session
-            && !m_isResolvingCards && !m_isWaitingRespawn;
+            && !IsInputLocked();
     }
     /// <summary>
     /// Checks if the player can select cards during the card selection phase.
@@ -35,7 +37,7 @@ public partial class GameMaster
     public bool CanPlayerSelectCards(PlayerSession session)
     {
         return m_gamePhase.Value == GamePhase.CardSelection
-            && !m_isResolvingCards && !m_isWaitingRespawn;
+            && !IsInputLocked();
     }
     #endregion
     private IEnumerator RunGuarded(IEnumerator root)
@@ -317,6 +319,9 @@ public partial class GameMaster
 
                 m_isResolvingCards = false;
 
+                if (IsGameFinished())
+                    break;
+
                 yield return null;
             }
 
@@ -495,6 +500,7 @@ public partial class GameMaster
     private IEnumerator CardSelectionPhase()
     {
         m_gamePhase.Value = GamePhase.CardSelection;
+        m_selectionPhaseId.Value++;
 
         m_selectionTimerResetsThisPhase.Clear();
         m_turnSelections.Clear();
@@ -607,26 +613,6 @@ public partial class GameMaster
         m_gamePhase.Value = _pausedPhase;
         m_timer.Value = _pausedTimer;
         m_activePlayer.Value = _pausedActivePlayer;
-    }
-    /// <summary>
-    /// Searches for any player who has lost all their lives and updates the game state accordingly. It checks each player's current life value, and if a player is found to have zero or less life, it records their network object ID, sets the external death detected flag, and determines if the lost player is the local player.
-    /// </summary>
-    private void FindLostPlayer()
-    {
-        foreach (PlayerSession player in m_players)
-        {
-            if (player == null)
-            {
-                Debug.LogError("GameMaster: player is null");
-                continue;
-            }
-            if (player.m_lifeCurrent.Value > 0)
-                continue;
-            m_lostClientId = player.NetworkObjectId;
-            bool _isLocalPlayer = SessionManager.Instance.LocalPlayer != null && player.NetworkObjectId == SessionManager.Instance.LocalPlayer.NetworkObjectId;
-            m_externalDeathDetected = true;
-            m_isLocalPlayerLost = _isLocalPlayer;
-        }
     }
     /// <summary>
     /// Performs the respawn wait phase, allowing dead players to respawn. It checks for any dead players, sets the game phase to RespawnWait, and waits for the respawn confirmation or until the respawn wait time is reached. If a valid respawn point is found, the player is respawned; otherwise, their life is set to -1, indicating they cannot respawn.
@@ -779,6 +765,9 @@ public partial class GameMaster
         bool _result = false;
         foreach (PlayerSession p in m_players)
         {
+            if (p == null)
+                continue;
+
             if ((p.GetCharacter() == null) && (p.TeamId.Value != -1))
             {
                 _result = true;
@@ -792,39 +781,16 @@ public partial class GameMaster
     /// <returns>True if the game is finished; otherwise, false.</returns>
     private bool IsGameFinished()
     {
-        bool _result = false;
-        List<PlayerSession> _players = new List<PlayerSession>();
+        int _playerAliveOrCanRespawn = 0;
         foreach (PlayerSession p in m_players)
         {
-            if (p.TeamId.Value != -1)
-            {
-                _players.Add(p);
-            }
-        }
-        int _playerAliveOrCanRespawn = 0;
-        {
-            foreach (PlayerSession p in _players)
-            {
-                var _char = p.GetCharacter();
-                if (_char != null)
-                {
-                    _playerAliveOrCanRespawn++;
-                    continue;
-                }
+            if (p == null || p.TeamId.Value == -1)
+                continue;
 
-                if (p.m_lifeCurrent.Value > 0)
-                {
-                    _playerAliveOrCanRespawn++;
-                    continue;
-                }
-            }
+            if (p.GetCharacter() != null || p.m_lifeCurrent.Value > 0)
+                _playerAliveOrCanRespawn++;
         }
-        if (_playerAliveOrCanRespawn <= 1)
-        {
-            _result = true;
-        }
-        FindLostPlayer();
-        return _result;
+        return _playerAliveOrCanRespawn <= 1;
     }
     /// <summary>
     /// Checks if all players have confirmed their card selections for the current turn. It iterates through the turn selections and counts the number of players who have confirmed their selections, returning true if all players have confirmed.
@@ -860,22 +826,14 @@ public partial class GameMaster
     /// <returns>The first dead player with remaining lives, or null if no such player exists.</returns>
     private PlayerSession FindDeadPlayer()
     {
-        PlayerSession _result = null;
-        List<PlayerSession> _players = new List<PlayerSession>();
         foreach (PlayerSession p in m_players)
         {
-            if (p.TeamId.Value != -1)
-            {
-                _players.Add(p);
-            }
+            if (p == null || p.TeamId.Value == -1)
+                continue;
+
+            if (p.GetCharacter() == null && p.m_lifeCurrent.Value > 0)
+                return p;
         }
-        for (int i = 0; i < _players.Count && _result == null; i++)
-        {
-            if (_players[i].GetCharacter() == null && _players[i].m_lifeCurrent.Value > 0)
-            {
-                _result = _players[i];
-            }
-        }
-        return _result;
+        return null;
     }
 }

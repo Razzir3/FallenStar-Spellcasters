@@ -67,15 +67,15 @@ N14 (2026-10-19): the server rejects a GameScene load completion with any timed-
 1. It waits ≤10 s for `SessionManager.Instance`. `SessionManager` is in-scene placed in `GameScene`. Its `OnNetworkSpawn` calls `CreateSessionsForAlreadyConnectedClients`, which calls `CreateSession(clientId)` for each connected client:
    - Instantiate `PlayerSessionPrefab`.
    - `GetFreeSlot` assigns slot index → `TeamId`, from 0 to 3, or −1 when full.
-   - `Initialize`: 3 lives.
-   - `SpawnWithOwnership(clientId)`.
+   - N2: `Initialize` stores pending client/team IDs and maximum lives (3), without NetworkVariable writes.
+   - `SpawnWithOwnership(clientId)` synchronously invokes server OnNetworkSpawn, applying the pending IDs and 3 lives before client spawn messages are sent.
    - Add to `m_playerSessions` and `SessionDataList`.
 
    Clients rebuild `m_playerSessions` from the NetworkList `SessionDataList`.
 2. It waits ≤10 s until `m_playerSessions.Count >= 2`. Both waits abort through `AbortGameStart` on timeout (`session_manager_missing` / `not_enough_sessions`), or immediately when NetworkManager is missing, stops listening or has fewer than two connected clients (`player_left_before_start`). Disappearance of SessionManager during the second wait also aborts safely. The connection check is repeated before spawning, including when neither wait was needed.
 3. It calls `GameMaster.SpawnPlayers()` (`GameMaster.Spawn.cs:210`). For each session with `SessionRole.Player`:
    - `CreateBlock`: 25 blocks around the team's scene `SpawnPoint` (5×5, 3 m pitch), each `SpawnWithOwnership(client)`. Then `BlockController.Initialize`, then `PlayerSession.AddBlock`, which re-initializes the child `SpawnPoint` team.
-   - `SpawnCharacter`: random free scene `SpawnPoint` for the team, then `SpawnAsPlayerObject(client)`, `SessionObjectId`, `CharacterObjectId`, `SetSpawnPoint`, and finally `MovePlayeToSpawnPoint`, which moves the character 3 units up.
+   - `SpawnCharacter`: random free scene `SpawnPoint` for the team, then `SpawnAsPlayerObject(client)` (N22 initializes HP 100/100 and speed 3 synchronously on the server), `SessionObjectId`, `CharacterObjectId`, `SetSpawnPoint`, and finally `MovePlayeToSpawnPoint`, which moves the character 3 units up. Materials still wait for the session binding.
    - Finally it runs `BindPlayerCardWorldAreas` and sets `MultiplayerStatus.InGameStatus`.
 4. It calls `GameMaster.StartNewGame()` (`GameMaster.cs:364`):
    - Stop the previous coroutine.
@@ -135,7 +135,7 @@ GameLoop()  (GameLoop.cs:44)
 
 - A successful DrawCard, from either round draws or Clarity, invokes server-only DiscardOldestOverHandLimit after removing the drawn card from the deck. The additive `m_maxHandCards` defaults to 10; zero/negative disables the rule. Failed draws do not discard anything.
 - Hand-list order is draw age. The helper copies uncommitted IDs, excluding both board-play and board-discard lists, and removes the oldest excess through the existing MoveCardOnGraveyard path. Stale IDs are removed with the existing list helper. Committed cards remain protected and the newly drawn card remains newest.
-- One owner-targeted HandLimitDiscardClientRpc per event shows `hand_limit_discard`. Clients prune null/no-longer-held cards from local selections on hand rebuild and immediately before ordinary confirmation; valid carried-over selections and committed cards remain. This prevents discarded carry-over IDs from becoming false InvalidCardSelection reports without resolving N26 itself.
+- One owner-targeted HandLimitDiscardClientRpc per event shows `hand_limit_discard`. Clients prune null/no-longer-held cards from local selections on hand rebuild and immediately before ordinary confirmation. N26 additionally clears both local selection lists at a new selection phase; same-phase respawn pauses preserve valid selections.
 - PlayerUI's shared message helper remembers the active LocalizedString, so both mana and hand-limit messages refresh on locale changes while retaining the current deadline. Expiry and ClearLocalUI clear that reference. The HUD prefab adds only the hand-limit localization reference.
 
 ### Mana validation at selection confirm (MANA2)
@@ -162,8 +162,8 @@ Each frame, until timeout or `m_activePlayerConfirmedAction` with an empty queue
    - re-checks the card exists, the card owner is the active player, the card is in `m_boardPlayCards`, and the data and activities are non-null
    - checks the target count ≥ number of activities, which is always 4
    - for each activity: a zero target is allowed only for `None/All*/Random*`, then `CheckActivity`
-   - on success, runs `ProcessActivity` for each activity. After each one it uses the same finish/death/finish sequence. A decisive death breaks the activity loop; end-of-action cleanup remains reachable. Queued packages after a decisive activity remain the separate N6 issue.
-   - runs `MoveCardOnGraveyard`
+   - on success, runs `ProcessActivity` for each activity. After each one it uses the same finish/death/finish sequence. A decisive death breaks the activity loop; end-of-action cleanup remains reachable.
+   - runs `MoveCardOnGraveyard`, clears the resolving flag, then N6 checks finish before yielding or processing another package. Remaining packages stay queued until EndMatch clears them; their effects do not run.
 3. At phase end it calls `ClearDiscardedCards(player)` and `ClearPlayedCards(player)`, which send all board cards to the graveyard.
 
 ### 3.2 Death pause and respawn (N18/M1, 2026-10-19) [Confirmed]
@@ -186,7 +186,7 @@ Existing `WaitForRespawnIfNeeded` behavior:
 - **HP ≤ 0** (`UpdatePlayerHP`): M6 (2026-10-20) logs and returns if the controller has no session. Otherwise the existing order is retained: decrement life, `DespawnCharacter`, free the spawn point when present, clear character and `CharacterObjectId`. The guarded spawn-point fallback remains even when despawning returns early.
 - **Lava** (`LavaKillZone.TryKillPlayer`, server): `ServerKillPlayerByHazard` sets HP to 0, then runs `UpdatePlayerHP` and sets `m_externalDeathDetected`. M3 (2026-10-20) tracks killed `PlayerController` instances instead of recycled network IDs, removing Unity-destroyed entries before checking membership. A new pony instance can therefore die even with the same ID; existing authority, spawned/current-character/session checks remain.
 - **Block HP ≤ 0** (`UpdateBlockHp`): `PlayerSession.DeleteBlock`, then `Despawn`. A character standing on it is expected to fall into the lava. That is physics, **[Unknown]** at runtime.
-- **Game finished** (`IsGameFinished`, `GameLoop.cs:646`): at most one player with `TeamId != -1` has a character or lives > 0.
+- **Game finished** (`IsGameFinished`): at most one non-null player with `TeamId != -1` has a character or lives > 0. L3 makes this a single allocation-free, side-effect-free count and removes FindLostPlayer/dead lost-player fields. FindDeadPlayer also uses one ordered loop; IsAnyPlayerDead skips null entries. The real external-death signal in Processing remains.
 - **[Unfinished]** README's "destroy all enemy blocks" win rule is not implemented directly. Losing all blocks only matters at the next respawn, when no spawn point exists and the life is set to −1.
 
 ### 3.4 Unused or unreached phases
@@ -209,7 +209,7 @@ Existing `WaitForRespawnIfNeeded` behavior:
 | Move (WASD) | `PlayerController.Update` → `SendMovementInput`. Requires `CanPlayerMove` **on the client** | `PlayerController.InputServerRpc(PlayerControlPackage)` (owner-only) | `GameMaster.HandlePlayerControlPackage` (enqueue, `IsServer` per M4) → server `Update` → `InputQueueUpdate` → `MoveInputProcessing` + `HPDeltaProcessing` | Direction must be one axis step. **No phase check, and the target client comes from payload `ClientId`.** [Risk] |
 | Debug damage (Space) | `SendMovementInput` sets `s_hpDelta = -10` | same | `HPDeltaProcessing` applies any delta | **None.** [Risk] |
 | Select cards to play/discard | `PlayerUI.OnCardClicked` (LMB) / `OnCardAlterClicked` (RMB) → `PlayerSession.SelectCardToPlay/Discard` (local lists) | — | — | Local only |
-| Confirm selection | `PlayerUI.ConfirmTurn` → `PlayerSession.ConfirmTurn` | `PlayerSession.ConfirmTurnServerRpc(play[], discard[], respawnBlock)` | `HandleConfirmTurn` (`PackageManaging.cs:166`), `CardSelection` branch: `HandleConfirmSelectionTurn` (cost and turn order) **and** a raw write of the IDs into `m_boardPlayCards`/`m_boardDiscardCards` | The sender must own the session. The board write is not checked against hand, owner, duplicates or the already-confirmed flag. [Risk] |
+| Confirm selection | `PlayerUI.ConfirmTurn` → `PlayerSession.ConfirmTurn` | `PlayerSession.ConfirmTurnServerRpc(intendedPhase, play[], discard[], respawnBlock)` | `HandleConfirmTurn` checks sender and N21 phase family, then CardSelection uses `HandleConfirmSelectionTurn` and writes only its accepted cards to the board | Existing MANA2 ownership, hand, duplicate, mana and first-confirm checks remain. Late phase mismatches are ignored without suspicion. |
 | Target a played card | World click → `PlayerSession.SelectObject` (raycast) → `ConfirmTargetButtonUI.ConfirmSelect` → `PlayerSession.TryConfirmTarget` (fills `m_currentCardControllPackage`) | — | — | Local |
 | Cast card | `ConfirmSendButtonUI1.TryConfirmSend` → `PlayerSession.TryHandlePackage` → `CheckPackage` | `PlayerSession.CardInputServerRpc(CardControllPackage)` | `HandleCardControlPackage` (enqueue) → consumed by `PlayerActionPhase` | Phase, active player, card owner, card on board. Then target checks in the loop. |
 | End turn | `PlayerUI.ConfirmTurn` during `PlayerAction` | `ConfirmTurnServerRpc` | `HandlePlayerActionConfirm` sets `m_activePlayerConfirmedAction` | Must be the active player |
@@ -222,6 +222,8 @@ Notes:
 - **[Unknown]** `HandlePlayerActionConfirm` compares `PlayerSession != NetworkBehaviourReference` through an implicit conversion. Equality semantics need a runtime check.
 
 ### Safe card confirmation and Send (N20, M14, M8; 2026-10-19)
+
+N21/N26/N3 (2026-10-20): ConfirmTurn snapshots the intended GamePhase once and sends it through the owner RPC. After existing sender validation, the server accepts only CardSelection→CardSelection, RespawnWait→RespawnWait, or PlayerAction/ResolveCards within that action family. A mismatch is debug-logged and ignored without suspicion or mana feedback. Every new CardSelectionPhase increments m_selectionPhaseId; PlayerUI clears its local play/discard lists on that counter event, and unsubscribes on cleanup/destroy. Respawn restoration does not increment the counter, preserving same-phase selections. Movement, target and card-selection gates use the server's live resolving/respawn flags or the client's replicated m_isInputLocked. The server mirrors that lock in Update and resets it on spawned-server cleanup/new game. These paths passed isolated source scenarios; live replication/timing remains manual.
 
 - `CardTargetRules.RequiresSelectedTarget` is shared by client package validation and the server's zero-target check. Its eight optional-target cases are identical to the former server switch; an optional zero target still skips `CheckActivity`. Other target validation, resolution and authority remain unchanged.
 - `PlayerSession.ClearSelectedCard` clears a nonempty confirmed package too. Repeated clearing of an empty package retains its target list. Send requires a nonzero confirmed card ID matching the currently selected card, available card data/activities, enough target slots and a nonzero target for each required activity. A missing GameMaster returns safely. The existing phase permission and successful-send reset remain.
@@ -262,11 +264,11 @@ These are documented, not fixed. Each needs separate verification.
 | L4 | `CheckActivity` dereferences `_ownerPlayer` before its null check | `Processing.cs:69` | NRE leads to L1 |
 | L5 | `FillCardSection` writes `_nonUniqueList[i]` on a possibly empty list for `UltraRare` | `Card.cs:262` | `StartNewGame` throws once an UltraRare card exists. No current card is UltraRare. |
 | L6 | Resolved by N18/M1: the pause helper saves and restores the phase timer and active player | `GameMaster.GameLoop.cs` | Respawn time no longer consumes/resets action-turn time. |
-| L7 | N6 remains: after a decisive activity, queued card packages can still resolve | `PlayerActionPhase` | N18/M1 adds finish checks at frame/activity sites; draining already queued packages remains outside its scope. |
-| L8 | The end of the match only logs on the server. `m_isLocalPlayerLost` is host-relative and is not networked | `GameLoop.cs:44-62`, `FindLostPlayer` | Clients never see a result. Players remain in `GameScene`. |
+| L7 | Resolved by N6 (2026-10-20): finish is checked after disposing the deciding card and clearing the resolving flag | `PlayerActionPhase` | Later queued effects do not run; normal phase cleanup and EndMatch queue clearing remain. |
+| L8 | Historical audit entry: result delivery was implemented by H5; L3 now removes the unused lost-player fields and FindLostPlayer | `GameLoop`, `EndMatch`, `MatchEndedClientRpc` | EndMatch retains the existing LivesDepleted result flow; live regression remains manual. |
 | L9 | An opponent disconnect is not handled by `GameMaster`. Destroyed sessions stay in `m_players` | `MultiplayerManager.OnClientDisconnected`, `SessionManager.OnClientDisconnected` | Undefined end state. See [Dependencies.md](Dependencies.md#5-regression-points). |
-| L10 | `IsGameFinished()` has the side effect `FindLostPlayer()`, which sets `m_externalDeathDetected` | `GameLoop.cs:679` | Hidden coupling. The death flag is re-raised by every finish check. |
-| L11 | Resolved by M15 (2026-10-20): successful draws enforce the configured uncommitted-hand limit, default 10, discarding oldest excess cards | `GameMaster.Card.cs` | Committed cards are excluded; zero/negative disables the rule. Valid unconfirmed selection carry-over (N26) remains separate. |
+| L10 | Resolved by L3 (2026-10-20): finish/dead-player lookups use single loops and FindLostPlayer is removed | `GameMaster.GameLoop.cs` | Finish checks no longer allocate a list or raise external-death state. |
+| L11 | Resolved by M15 (2026-10-20): successful draws enforce the configured uncommitted-hand limit, default 10, discarding oldest excess cards | `GameMaster.Card.cs` | Committed cards are excluded; zero/negative disables the rule. N26 clears unconfirmed selections on a new selection phase while preserving same-phase pauses. |
 | L12 | Resolved by M3 (2026-10-20): lava uses an instance set and prunes Unity-destroyed entries | `LavaKillZone.cs` | Network ID reuse no longer suppresses a different pony instance; actual physics/recycled-ID Play Mode verification remains |
 
 ## 7. Unknown, needs Play Mode

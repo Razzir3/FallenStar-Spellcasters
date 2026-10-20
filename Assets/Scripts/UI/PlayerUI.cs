@@ -75,6 +75,12 @@ public class PlayerUI : NetworkBehaviour
 
     public override void OnDestroy()
     {
+        if (GameMaster.Instance != null)
+        {
+            GameMaster.Instance.m_gamePhase.OnValueChanged -= OnGamePhaseChanged;
+            GameMaster.Instance.m_selectionPhaseId.OnValueChanged -= OnSelectionPhaseChanged;
+        }
+
         if (Instance == this)
         {
             Instance = null;
@@ -130,6 +136,12 @@ public class PlayerUI : NetworkBehaviour
 
                 GameMaster.Instance.m_gamePhase.OnValueChanged +=
                     OnGamePhaseChanged;
+
+                GameMaster.Instance.m_selectionPhaseId.OnValueChanged -=
+                    OnSelectionPhaseChanged;
+
+                GameMaster.Instance.m_selectionPhaseId.OnValueChanged +=
+                    OnSelectionPhaseChanged;
             }
 
             UpdateCards(default);
@@ -221,6 +233,15 @@ public class PlayerUI : NetworkBehaviour
         m_messageText.text = message.GetLocalizedString();
         m_messageHideTime = Time.unscaledTime + Mathf.Max(0f, m_messageDuration);
     }
+    private void OnSelectionPhaseChanged(int previous, int current)
+    {
+        if (m_playerSession != null)
+        {
+            m_playerSession.ClearLocalCardSelection();
+            UpdateCards(default);
+        }
+    }
+
     private void OnGamePhaseChanged(
     GamePhase previousValue,
     GamePhase newValue)
@@ -556,6 +577,9 @@ public class PlayerUI : NetworkBehaviour
         {
             GameMaster.Instance.m_gamePhase.OnValueChanged -=
                 OnGamePhaseChanged;
+
+            GameMaster.Instance.m_selectionPhaseId.OnValueChanged -=
+                OnSelectionPhaseChanged;
         }
 
         m_playerSession = null;

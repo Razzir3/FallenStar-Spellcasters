@@ -87,6 +87,8 @@ public partial class GameMaster : NetworkBehaviour
     [SerializeField] private int m_maxSelectionTimerResetsPerMatch = 3;
 
     public NetworkVariable <GamePhase> m_gamePhase = new NetworkVariable<GamePhase>(GamePhase.None, NetworkVariableReadPermission.Everyone,NetworkVariableWritePermission.Server);
+    public NetworkVariable<bool> m_isInputLocked = new NetworkVariable<bool>(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+    public NetworkVariable<int> m_selectionPhaseId = new NetworkVariable<int>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
     private List<PlayerSession> m_players = new();
     private readonly Dictionary<PlayerSession, PlayerTurnSelection> m_turnSelections = new();
@@ -120,9 +122,6 @@ public partial class GameMaster : NetworkBehaviour
 
     private bool m_externalDeathDetected = false;
 
-    private bool m_isLocalPlayerLost = false;
-
-    private ulong m_lostClientId = 0;
     #endregion
 
     #region UnityCallingFunc
@@ -142,7 +141,11 @@ public partial class GameMaster : NetworkBehaviour
             return;
         // Only the server handles input packages.
         if (!IsServer) return;
-        
+
+        bool _locked = m_isResolvingCards || m_isWaitingRespawn;
+        if (m_isInputLocked.Value != _locked)
+            m_isInputLocked.Value = _locked;
+
         InputQueueUpdate();
         //CardMessageQueueUpdate();
     }
@@ -340,6 +343,8 @@ public partial class GameMaster : NetworkBehaviour
 
         m_isResolvingCards = false;
         m_isWaitingRespawn = false;
+        if (IsServer && IsSpawned)
+            m_isInputLocked.Value = false;
         m_activePlayerConfirmedAction = false;
         m_respawnConfirmed = false;
         m_externalDeathDetected = false;
@@ -527,6 +532,11 @@ public partial class GameMaster : NetworkBehaviour
 
         m_isResolvingCards = false;
         m_isWaitingRespawn = false;
+        if (IsServer && IsSpawned)
+        {
+            m_isInputLocked.Value = false;
+            m_selectionPhaseId.Value = 0;
+        }
         m_activePlayerConfirmedAction = false;
         m_respawnConfirmed = false;
 
