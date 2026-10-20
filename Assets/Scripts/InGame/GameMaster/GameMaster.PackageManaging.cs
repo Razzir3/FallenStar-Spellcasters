@@ -482,20 +482,6 @@ public partial class GameMaster
         }
     }
     /// <summary>
-    /// Validates if the card belongs to the player session. This method checks if the team ID of the player session matches the team ID of the owner of the card.
-    /// </summary>
-    /// <param name="card"></param>
-    /// <param name="session"></param>
-    /// <returns></returns>
-    private bool ValidateCardOwner(NetworkCard card, PlayerSession session)
-    {
-        if (card == null || session == null)
-            return false;
-
-        PlayerSession _ownerSession = GetSessionByID(card.m_ownerId.Value);
-        return _ownerSession != null && session.TeamId.Value == _ownerSession.TeamId.Value;
-    }
-    /// <summary>
     /// Validates if the respawn block is valid for the player. This method checks if the block is spawned, belongs to the same team as the player, and has a valid spawn point.
     /// </summary>
     /// <param name="player"></param>

@@ -6,7 +6,7 @@ public class PlayerCardWorldArea : MonoBehaviour
 
     [Header("Session Binding")]
 
-    [Tooltip("„H„~„p„‰„u„~„y„u „t„€„|„w„~„€ „ƒ„€„€„„„r„u„„„ƒ„„„r„€„r„p„„„ PlayerSession.TeamId.Value")]
+    [Tooltip("Ğ—Ğ½Ğ°Ñ‡ĞµĞ½Ğ¸Ğµ Ğ´Ğ¾Ğ»Ğ¶Ğ½Ğ¾ ÑĞ¾Ğ¾Ñ‚Ğ²ĞµÑ‚ÑÑ‚Ğ²Ğ¾Ğ²Ğ°Ñ‚ÑŒ PlayerSession.TeamId.Value")]
     [SerializeField]
     public int m_sessionSearchId;
 
@@ -15,7 +15,7 @@ public class PlayerCardWorldArea : MonoBehaviour
 
     [Header("Card Positioning")]
 
-    [Tooltip("„C„€„‚„y„x„€„~„„„p„|„„~„€„u „‚„p„ƒ„ƒ„„„€„‘„~„y„u „}„u„w„t„… „ˆ„u„~„„„‚„p„}„y „ƒ„€„ƒ„u„t„~„y„‡ „{„p„‚„„")]
+    [Tooltip("Ğ“Ğ¾Ñ€Ğ¸Ğ·Ğ¾Ğ½Ñ‚Ğ°Ğ»ÑŒĞ½Ğ¾Ğµ Ñ€Ğ°ÑÑÑ‚Ğ¾ÑĞ½Ğ¸Ğµ Ğ¼ĞµĞ¶Ğ´Ñƒ Ñ†ĞµĞ½Ñ‚Ñ€Ğ°Ğ¼Ğ¸ ÑĞ¾ÑĞµĞ´Ğ½Ğ¸Ñ… ĞºĞ°Ñ€Ñ‚")]
     [SerializeField]
     private float m_cardInterval = 2f;
 
@@ -45,11 +45,11 @@ public class PlayerCardWorldArea : MonoBehaviour
     }
 
     /*
-     * „B„€„x„r„‚„p„‹„p„u„„ „|„€„{„p„|„„~„…„ „„€„x„y„ˆ„y„ „{„p„‚„„„ „€„„„~„€„ƒ„y„„„u„|„„~„€
-     * „ˆ„u„~„„„‚„p PlayerCardWorldArea.
+     * Ğ’Ğ¾Ğ·Ğ²Ñ€Ğ°Ñ‰Ğ°ĞµÑ‚ Ğ»Ğ¾ĞºĞ°Ğ»ÑŒĞ½ÑƒÑ Ğ¿Ğ¾Ğ·Ğ¸Ñ†Ğ¸Ñ ĞºĞ°Ñ€Ñ‚Ñ‹ Ğ¾Ñ‚Ğ½Ğ¾ÑĞ¸Ñ‚ĞµĞ»ÑŒĞ½Ğ¾
+     * Ñ†ĞµĞ½Ñ‚Ñ€Ğ° PlayerCardWorldArea.
      *
-     * „C„u„€„}„u„„„‚„y„‰„u„ƒ„{„y„z „ˆ„u„~„„„‚ „r„ƒ„u„z „„€„ƒ„|„u„t„€„r„p„„„u„|„„~„€„ƒ„„„y
-     * „r„ƒ„u„s„t„p „q„…„t„u„„ „~„p„‡„€„t„y„„„„ƒ„‘ „r localPosition = Vector3.zero.
+     * Ğ“ĞµĞ¾Ğ¼ĞµÑ‚Ñ€Ğ¸Ñ‡ĞµÑĞºĞ¸Ğ¹ Ñ†ĞµĞ½Ñ‚Ñ€ Ğ²ÑĞµĞ¹ Ğ¿Ğ¾ÑĞ»ĞµĞ´Ğ¾Ğ²Ğ°Ñ‚ĞµĞ»ÑŒĞ½Ğ¾ÑÑ‚Ğ¸
+     * Ğ²ÑĞµĞ³Ğ´Ğ° Ğ±ÑƒĞ´ĞµÑ‚ Ğ½Ğ°Ñ…Ğ¾Ğ´Ğ¸Ñ‚ÑŒÑÑ Ğ² localPosition = Vector3.zero.
      */
     public Vector3 GetCardLocalPosition(
         int index,
@@ -75,9 +75,9 @@ public class PlayerCardWorldArea : MonoBehaviour
             (index - centerIndex) * m_cardInterval;
 
         /*
-         * „I„ƒ„„€„|„„x„…„u„„„ƒ„‘ „|„€„{„p„|„„~„p„‘ „€„ƒ„ X „€„q„Œ„u„{„„„p.
-         * „P„€„r„€„‚„€„„ PlayerCardWorldArea „p„r„„„€„}„p„„„y„‰„u„ƒ„{„y
-         * „„€„r„€„‚„p„‰„y„r„p„u„„ „r„ƒ„ „„€„ƒ„|„u„t„€„r„p„„„u„|„„~„€„ƒ„„„ „~„p „ƒ„ˆ„u„~„u.
+         * Ğ˜ÑĞ¿Ğ¾Ğ»ÑŒĞ·ÑƒĞµÑ‚ÑÑ Ğ»Ğ¾ĞºĞ°Ğ»ÑŒĞ½Ğ°Ñ Ğ¾ÑÑŒ X Ğ¾Ğ±ÑŠĞµĞºÑ‚Ğ°.
+         * ĞŸĞ¾Ğ²Ğ¾Ñ€Ğ¾Ñ‚ PlayerCardWorldArea Ğ°Ğ²Ñ‚Ğ¾Ğ¼Ğ°Ñ‚Ğ¸Ñ‡ĞµÑĞºĞ¸
+         * Ğ¿Ğ¾Ğ²Ğ¾Ñ€Ğ°Ñ‡Ğ¸Ğ²Ğ°ĞµÑ‚ Ğ²ÑÑ Ğ¿Ğ¾ÑĞ»ĞµĞ´Ğ¾Ğ²Ğ°Ñ‚ĞµĞ»ÑŒĞ½Ğ¾ÑÑ‚ÑŒ Ğ½Ğ° ÑÑ†ĞµĞ½Ğµ.
          */
         return new Vector3(
             horizontalPosition,
@@ -122,15 +122,15 @@ public class PlayerCardWorldArea : MonoBehaviour
         Gizmos.matrix = transform.localToWorldMatrix;
 
         /*
-         * „P„€„{„p„x„„r„p„u„„ „ˆ„u„~„„„‚ PlayerCardWorldArea.
+         * ĞŸĞ¾ĞºĞ°Ğ·Ñ‹Ğ²Ğ°ĞµÑ‚ Ñ†ĞµĞ½Ñ‚Ñ€ PlayerCardWorldArea.
          */
         Gizmos.DrawWireSphere(
             Vector3.zero,
             0.15f);
 
         /*
-         * „P„€„{„p„x„„r„p„u„„ „s„€„‚„y„x„€„~„„„p„|„„~„€„u „~„p„„‚„p„r„|„u„~„y„u,
-         * „r„t„€„|„ „{„€„„„€„‚„€„s„€ „q„…„t„…„„ „‚„p„x„}„u„‹„p„„„„ƒ„‘ „{„p„‚„„„.
+         * ĞŸĞ¾ĞºĞ°Ğ·Ñ‹Ğ²Ğ°ĞµÑ‚ Ğ³Ğ¾Ñ€Ğ¸Ğ·Ğ¾Ğ½Ñ‚Ğ°Ğ»ÑŒĞ½Ğ¾Ğµ Ğ½Ğ°Ğ¿Ñ€Ğ°Ğ²Ğ»ĞµĞ½Ğ¸Ğµ,
+         * Ğ²Ğ´Ğ¾Ğ»ÑŒ ĞºĞ¾Ñ‚Ğ¾Ñ€Ğ¾Ğ³Ğ¾ Ğ±ÑƒĞ´ÑƒÑ‚ Ñ€Ğ°Ğ·Ğ¼ĞµÑ‰Ğ°Ñ‚ÑŒÑÑ ĞºĞ°Ñ€Ñ‚Ñ‹.
          */
         Gizmos.DrawLine(
             Vector3.left * m_cardInterval * 3f,

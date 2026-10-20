@@ -744,7 +744,7 @@ public class CardWorldViewManager : MonoBehaviour
         if (card != null)
         {
             /*
-             * m_currentView Ñ~Ñu ÑyÑxÑ}ÑuÑ~ÑëÑuÑÑÑÉÑë.
+             * m_currentView –Ω–µ –∏–∑–º–µ–Ω—è–µ—Ç—Å—è.
              */
             card.SetAdditionalView(null);
         }

@@ -164,25 +164,29 @@ using UnityEngine.InputSystem;
 
             //input
             {
-            if (Keyboard.current.wKey.wasPressedThisFrame)
+            Keyboard _keyboard = Keyboard.current;
+            if (_keyboard == null)
+                return;
+
+            if (_keyboard.wKey.wasPressedThisFrame)
             {
                 _vertical = 1;
             }
-            else if (Keyboard.current.sKey.wasPressedThisFrame)
+            else if (_keyboard.sKey.wasPressedThisFrame)
             {
                 _vertical = -1;
             }
-            else if (Keyboard.current.aKey.wasPressedThisFrame)
+            else if (_keyboard.aKey.wasPressedThisFrame)
             {
                 _horizontal = -1;
             }
-            else if (Keyboard.current.dKey.wasPressedThisFrame)
+            else if (_keyboard.dKey.wasPressedThisFrame)
             {
                 _horizontal = 1;
             }
 
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
-            if (Keyboard.current.spaceKey.wasPressedThisFrame)
+            if (_keyboard.spaceKey.wasPressedThisFrame)
                 {
                     _hpDelta -= 10;
                 }

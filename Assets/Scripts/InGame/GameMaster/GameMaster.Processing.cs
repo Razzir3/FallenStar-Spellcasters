@@ -37,7 +37,7 @@ public partial class GameMaster
             {
                 if (m_debugMode)
                 {
-                    Debug.Log("Client disconnected: {_package.ClientId}");
+                    Debug.Log($"Client disconnected: {_package.ClientId}");
                 }
 
                 continue;

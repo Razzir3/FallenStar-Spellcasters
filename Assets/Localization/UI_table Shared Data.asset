@@ -172,7 +172,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 6436276898955264
-    m_Key: "btn_lobbyRefresh\t"
+    m_Key: btn_lobbyRefresh
     m_Metadata:
       m_Items: []
   - m_Id: 6436501550071808

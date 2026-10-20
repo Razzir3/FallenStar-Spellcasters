@@ -57,6 +57,13 @@ public partial class GameMaster
         StopCoroutine(m_gameCoroutine);
         m_gameCoroutine = null;
 
+        if (m_debugMode)
+        {
+            SuspiciousActivityLog _leavingLog = session.GetSuspiciousLog();
+            if (_leavingLog.Total > 0)
+                Debug.Log($"[Suspicious] client {session.OwnerClientId} match summary: {_leavingLog.ToSummaryString()}");
+        }
+
         m_players.Remove(session);
         m_turnOrder.Remove(session);
         m_turnSelections.Remove(session);

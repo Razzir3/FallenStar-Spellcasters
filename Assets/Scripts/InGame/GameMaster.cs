@@ -71,7 +71,6 @@ public partial class GameMaster : NetworkBehaviour
     [SerializeField] private float m_cardDrawDelay = 0.8f;
     [SerializeField] private float m_cardSelectionTime = 60f;
     [SerializeField] private float m_playerActionTime = 60f;
-    [SerializeField] private float m_cardResolveDelay = 3f;
     [SerializeField] private float m_respawnWaitTime = 30f;
     [Header("Movement")]
     [SerializeField]
