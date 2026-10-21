@@ -305,6 +305,22 @@ MonoBehaviour:
     m_Localized: 'Hand limit reached: your oldest card was discarded.'
     m_Metadata:
       m_Items: []
+  - m_Id: 50768243265961984
+    m_Localized: Display mode
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50769044537409536
+    m_Localized: Resolution
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50769044537409537
+    m_Localized: Fullscreen
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50769044537409538
+    m_Localized: Windowed
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds:

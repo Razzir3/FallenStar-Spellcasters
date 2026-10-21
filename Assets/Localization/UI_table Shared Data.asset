@@ -15,6 +15,22 @@ MonoBehaviour:
   m_TableCollectionName: UI_table
   m_TableCollectionNameGuidString: 5f329d5350a5fd44e86607395a0dd117
   m_Entries:
+  - m_Id: 50768243265961984
+    m_Key: label_displayMode
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50769044537409536
+    m_Key: label_resolution
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50769044537409537
+    m_Key: option_fullscreen
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50769044537409538
+    m_Key: option_windowed
+    m_Metadata:
+      m_Items: []
   - m_Id: 49867087845064704
     m_Key: btn_leaveMatch
     m_Metadata:

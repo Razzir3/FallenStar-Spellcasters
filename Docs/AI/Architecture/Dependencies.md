@@ -16,7 +16,7 @@
 | `Bootstrap`, `AuthManager`, `SceneFlowManager`, `MultiplayerManager` | `LoginScene` / `AppRoot` (one GameObject, DDOL). Old copies of `Bootstrap` and `MultiplayerManager` also sit in `BootsTrap.prefab` and `MultiplayerManager.prefab`; no scene uses those prefabs. |
 | `LoginUI` | `LoginScene` |
 | `MainMenuUI` | `MainMenuScene` |
-| `SettingsUI`, `SettingsSceneButtonsUI` | `SettingsScene` |
+| `SettingsUI`, `SettingsSceneButtonsUI`, `DisplaySettingsUI` | `SettingsScene` |
 | `LobbyControlUI`, `LobbyListUI`, `LobbyPlayerListUI`, `CurrentLobbyUI` | `LobbyScene` |
 | `LobbyListItemUI`, `LobbyPlayerItemUI` | `UiPrefab/LobbyListItemPrefab`, `LobbyPlayerItemPrefab` |
 | `SessionManager` | `SessionManager.prefab` → in-scene instance in `GameScene` |

@@ -231,7 +231,7 @@ Details: [GameLoop.md §3.8](GameLoop.md#38-match-end-abort-and-the-guarded-runn
 
 Sources: `Assets/Localization/*`, `Bootstrap.ApplySavedLanguage`, `SettingsUI.cs`, `GameSettingsPrefs.cs`, the UI scripts.
 
-- **[Confirmed]** Locales en, ru, ja. `UI_table` has 69 keys and `Cards` has 8. Every locale has a non-empty entry for every key, including `Phase.*` for all 9 phases, the result texts, mana and hand-limit messages.
+- **[Confirmed]** Locales en, ru, ja. `UI_table` has 73 keys and `Cards` has 8. Every locale has a non-empty entry for every key, including `Phase.*` for all 9 phases, the result texts, mana and hand-limit messages.
 - **[Confirmed] Saved language:**
   - `SettingsUI.OnLanguageChanged` (in `SettingsScene`) sets `LocalizationSettings.SelectedLocale` and saves the code in `PlayerPrefs["setting.language_code"]`.
   - `Bootstrap.Start` waits for `LocalizationSettings.InitializationOperation`, then applies the saved code.
@@ -249,6 +249,8 @@ Sources: `Assets/Localization/*`, `Bootstrap.ApplySavedLanguage`, `SettingsUI.cs
   - The asset keeps its font-feature table (about 67k lines), by the owner's choice.
 
 **UI1–UI4 layout update (2026-10-21).** All six root CanvasScalers use Scale With Screen Size / Expand: 1920×1080 for front-end scenes and 2560×1600 for GameScene. Login's background uses Envelope Parent at aspect 1.7769. Expand preserves the full reference rectangle; front-end UI at 16:10 therefore occupies slightly less height than at the 16:9 reference. The HUD root and LeaveMatch stretch to the canvas; stats/buttons follow corners, while the banner, announcer and hand stay centered. The announcer uses an unscaled 1560×150 rect, centered text and scene font limits 24–48; en/ru prefixes include the separator, and truncation warns once per distinct text. The hand keeps a 300-unit bottom offset and fits within 1800 units using preferred card width and compressed spacing; old views deactivate before deferred destruction. Card previews preserve assigned references, otherwise choose the HUD/root screen-space canvas, rebuild layout and clamp in canvas-local units. The target-Confirm label's minimum size is 14. Existing network identities, UI references and gameplay authority are unchanged.
+
+**UI5 display settings (2026-10-21).** `DisplaySettingsUI` on `SettingsCanvas` owns the Fullscreen/Windowed and resolution dropdowns. It filters and deduplicates monitor modes, keeps the actual current size visible, applies choices immediately with `Screen.SetResolution`, and refreshes without notifications when Unity reports an outside size/mode change. Fullscreen selects the native display size; Windowed keeps a strictly fitting size or chooses the largest fitting monitor mode. Mode labels follow locale changes. Unity's own screen-state persistence is used; there are no new preference keys or startup overrides. The settings panel is 600×400 with three rows; existing language and Back references and CanvasScaler settings are preserved.
 
 ---
 
