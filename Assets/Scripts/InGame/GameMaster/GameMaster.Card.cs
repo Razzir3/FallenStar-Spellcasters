@@ -263,12 +263,14 @@ public partial class GameMaster
             Debug.LogWarning("Refill deck is empty.");
     }
     /// <summary>
-    /// Creates a deck of cards by randomly selecting cards from the card database based on specified maximum counts for different card types (Attack, Defence, Draw Card). The deck is then shuffled.
+    /// Randomly picks Attack/Defence/Draw targets of 20/30/30, 30/20/30 or 30/30/20,
+    /// fills each section filtered by maxRarity, then shuffles the deck.
+    /// With whole sets of 4, a 30-card section becomes 32, so decks have 84 cards.
     /// </summary>
     private void CreateDeck(CardRarity maxRarity = CardRarity.Unique)
     {
         m_deck.Clear();
-        int _randomSeed = Random.Range(0, 2);
+        int _randomSeed = Random.Range(0, 3);
         int _maxAttackSpell = 0;
         int _maxDefenceSpell = 0;
         int _maxDrawCardSpell = 0;
@@ -331,7 +333,9 @@ public partial class GameMaster
         m_deck.Shuffle();
     }
     /// <summary>
-    /// Fills a section of the deck with cards of a specific type, ensuring that the maximum number of cards for that type is not exceeded. It randomly selects cards from the unique list first, and if there are no unique cards left, it selects from the non-unique list. The selected cards are instantiated as NetworkCard objects and added to the deck.
+    /// Adds whole sets: 4 Common/Uncommon/Rare, 2 UltraRare or 1 Unique, one set
+    /// of each card first, then random repeat sets until the target is reached or passed.
+    /// A section can exceed maxCardType by up to one set minus one card.
     /// </summary>
     /// <param name="maxCardType">The maximum number of cards of this type allowed in the deck.</param>
     /// <param name="currentCardType">The current number of cards of this type in the deck.</param>

@@ -22,7 +22,6 @@ using UnityEngine.InputSystem;
 
         public NetworkVariable<int> m_playerTeam = new NetworkVariable<int>(-1, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
-        private Queue<ToPlayerControlPackage> m_inputQueue = new();
 
         [SerializeField] private Renderer m_meshRenderer;
     private Color m_defaultColor;
@@ -45,6 +44,7 @@ using UnityEngine.InputSystem;
 
     private void Awake()
     {
+        m_debugMode = DebugModeGuard.Allow(m_debugMode);
         m_rigidbody = GetComponent<Rigidbody>();
 
         if (m_meshRenderer == null)
@@ -284,22 +284,6 @@ using UnityEngine.InputSystem;
             {
                 Debug.LogError(e);
             }
-        }
-
-        //This function is called by the GameMasterInstance when it has validated the input package
-        public void ReceiveValidatedInput(ToPlayerControlPackage package)
-        {
-            m_inputQueue.Enqueue(package);
-            if (m_debugMode)
-            {
-                Debug.Log("ReceiveValidatedInput");
-                Debug.Log(m_moveSpeedCurrent);
-                Debug.Log(Time.deltaTime);
-            }
-            //example of how to use the package 
-            //better in new function that is called in update, but for testing purposes we will use it here
-            //transform.Translate(new Vector3(package.s_horizontal, 0, package.s_vertical) * m_moveSpeed * Time.deltaTime);
-
         }
 
         public void Initialize(PlayerSession session)

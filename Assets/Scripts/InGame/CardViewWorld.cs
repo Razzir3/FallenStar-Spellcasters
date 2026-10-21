@@ -57,6 +57,7 @@ public class CardViewWorld : CardViewBase
 
     public override void Setup(CardData data)
     {
+        m_textData = data;
         if (data == null)
         {
             Debug.LogWarning(
@@ -68,6 +69,17 @@ public class CardViewWorld : CardViewBase
         m_artwork.sprite = data.m_artwork;
         m_frame.sprite = data.m_cardFrame;
 
+        ApplyTexts(data);
+
+        m_cost.text =
+            data.m_cost.ToString();
+
+        m_backFrame.sprite =
+            data.m_cardBack;
+    }
+
+    protected override void ApplyTexts(CardData data)
+    {
         m_name.text =
             LocalizationSettings.StringDatabase
                 .GetLocalizedString(
@@ -80,11 +92,6 @@ public class CardViewWorld : CardViewBase
                     "Cards",
                     data.m_descKey);
 
-        m_cost.text =
-            data.m_cost.ToString();
-
-        m_backFrame.sprite =
-            data.m_cardBack;
     }
 
     public override void SetFaceUp(bool value)

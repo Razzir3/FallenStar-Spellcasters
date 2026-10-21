@@ -19,6 +19,7 @@ public class LavaKillZone : MonoBehaviour
 
     private void Awake()
     {
+        m_debugMode = DebugModeGuard.Allow(m_debugMode);
         Collider _collider =
             GetComponent<Collider>();
 

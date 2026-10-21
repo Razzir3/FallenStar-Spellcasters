@@ -3,6 +3,11 @@ using UnityEngine;
 
 public class BlockController : NetworkBehaviour, ISelectable
 {
+    private void Awake()
+    {
+        m_debugMode = DebugModeGuard.Allow(m_debugMode);
+    }
+
     #region Variable
     [SerializeField] private GameObject m_spawnPoint;
     [SerializeField] private Renderer m_renderer;

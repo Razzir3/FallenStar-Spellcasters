@@ -174,9 +174,10 @@ public partial class GameMaster
                 $"Active player: {player.OwnerClientId}");
         }
 
-        m_timer.Value = 0f;
+        m_phaseElapsed = 0f;
+        StartPhaseCountdown(m_playerActionTime);
 
-        while (m_timer.Value < m_playerActionTime)
+        while (m_phaseElapsed < m_playerActionTime)
         {
             if (IsGameFinished()) break;
             if (m_externalDeathDetected || IsAnyPlayerDead())
@@ -330,7 +331,7 @@ public partial class GameMaster
                 break;
             }
 
-            m_timer.Value += Time.deltaTime;
+            m_phaseElapsed += Time.deltaTime;
 
             yield return null;
         }
@@ -389,9 +390,10 @@ public partial class GameMaster
         {
             Debug.Log("Round break phase started");
         }
-        m_timer.Value = 0f;
+        m_phaseElapsed = 0f;
+        StartPhaseCountdown(m_roundBreakTime);
 
-        while (m_timer.Value < m_roundBreakTime)
+        while (m_phaseElapsed < m_roundBreakTime)
         {
             if (IsGameFinished()) yield break;
             if (m_externalDeathDetected || IsAnyPlayerDead())
@@ -400,7 +402,7 @@ public partial class GameMaster
                 if (IsGameFinished()) yield break;
             }
 
-            m_timer.Value += Time.deltaTime;
+            m_phaseElapsed += Time.deltaTime;
             yield return null;
         }
         if (m_debugMode)
@@ -408,74 +410,7 @@ public partial class GameMaster
             Debug.Log("Round break phase ended");
         }
     }
-    //ToDo
-    private IEnumerator ResolvePlayerCardsPhase(PlayerSession player)
-    {
-        m_gamePhase.Value = GamePhase.ResolveCards;
-        m_isResolvingCards = true;
 
-        if (!m_turnSelections.TryGetValue(player, out PlayerTurnSelection selection))
-        {
-            m_isResolvingCards = false;
-            yield break;
-        }
-
-        while (m_cardInputQueue.Count > 0)
-        {
-            var _currentMessage = m_cardInputQueue.Dequeue();
-
-            NetworkCard _currentCard = GetCardByID(_currentMessage.CardNetworkObjectId);
-
-            if (_currentCard == null)
-            {
-                Debug.LogError("Card dont founded");
-                continue;
-            }
-
-            var _data = _currentCard.m_cardData;
-            int _checkResultSum = 0;
-            for (int i = 0; i < _currentMessage.TargetNetworkObjectId.Count; i++)
-            {
-                if (_currentMessage.TargetNetworkObjectId[i] != 0)
-                {
-                    if (CheckActivity(_data.m_activities[i], _currentMessage.TargetNetworkObjectId[i], _currentCard.m_ownerId.Value))
-                    {
-                        _checkResultSum++;
-                    }
-                }
-                else
-                {
-                    _checkResultSum++;
-                }
-            }
-            if (_checkResultSum == _currentMessage.TargetNetworkObjectId.Count)
-            {
-                for (int i = 0; i < _currentMessage.TargetNetworkObjectId.Count; i++)
-                {
-                    if (_currentMessage.TargetNetworkObjectId[i] != 0)
-                    {
-                        ProcessActivity(_data.m_activities[i], _currentMessage.TargetNetworkObjectId[i], _currentCard.m_ownerId.Value);
-                        if (IsAnyPlayerDead())
-                        {
-                            if (IsGameFinished())
-                            {
-                                break;
-                            }
-                            else
-                            {
-                                yield return WaitForRespawnIfNeeded();
-                            }
-                        }
-                    }
-                }
-            }
-            else
-            {
-                Debug.LogWarning("SuspectActivity");
-            }
-            MoveCardOnGraveyard(_currentCard);
-        }
-    }
     private void ResetCardSelectionTimer(PlayerSession session)
     {
         if (!IsServer || session == null || m_gamePhase.Value != GamePhase.CardSelection)
@@ -490,7 +425,8 @@ public partial class GameMaster
 
         m_selectionTimerResetsThisPhase[session] = _phaseResets + 1;
         m_selectionTimerResetsThisMatch[session] = _matchResets + 1;
-        m_timer.Value = 0f;
+        m_phaseElapsed = 0f;
+        StartPhaseCountdown(m_cardSelectionTime);
     }
 
     /// <summary>
@@ -518,9 +454,10 @@ public partial class GameMaster
 
         if (m_debugMode) Debug.Log("Card selection phase started.");
 
-        m_timer.Value = 0f;
+        m_phaseElapsed = 0f;
+        StartPhaseCountdown(m_cardSelectionTime);
 
-        while (m_timer.Value < m_cardSelectionTime)
+        while (m_phaseElapsed < m_cardSelectionTime)
         {
             if (IsGameFinished()) yield break;
             if (m_externalDeathDetected || IsAnyPlayerDead())
@@ -533,7 +470,7 @@ public partial class GameMaster
             {
                 break;
             }
-            m_timer.Value += Time.deltaTime;
+            m_phaseElapsed += Time.deltaTime;
             yield return null;
         }
 
@@ -546,7 +483,8 @@ public partial class GameMaster
     private IEnumerator DrawCardPhase()
     {
         Debug.Log("DrawPhase started");
-        m_timer.Value = 0;
+        m_phaseElapsed = 0;
+        StartPhaseCountdown(m_startHandCards * m_players.Count * m_cardDrawDelay);
         for (int i = 0; i < m_startHandCards; i++)
         {
             for (int j = 0; j < m_players.Count; j++)
@@ -576,7 +514,7 @@ public partial class GameMaster
                 }
                 while (_drawDelayElapsed < m_cardDrawDelay);
 
-                m_timer.Value += m_cardDrawDelay;
+                m_phaseElapsed += m_cardDrawDelay;
             }
         }
         Debug.Log("Draw phase ended");
@@ -602,7 +540,8 @@ public partial class GameMaster
         }
 
         GamePhase _pausedPhase = m_gamePhase.Value;
-        float _pausedTimer = m_timer.Value;
+        float _pausedTimer = m_phaseElapsed;
+        float _pausedDuration = m_phaseDuration;
         NetworkBehaviourReference _pausedActivePlayer = m_activePlayer.Value;
 
         yield return WaitForRespawnIfNeeded();
@@ -611,7 +550,8 @@ public partial class GameMaster
             yield break;
 
         m_gamePhase.Value = _pausedPhase;
-        m_timer.Value = _pausedTimer;
+        m_phaseElapsed = _pausedTimer;
+        StartPhaseCountdown(_pausedDuration, _pausedTimer);
         m_activePlayer.Value = _pausedActivePlayer;
     }
     /// <summary>
@@ -660,16 +600,17 @@ public partial class GameMaster
                 yield break;
             }
 
-            m_timer.Value = 0f;
+            m_phaseElapsed = 0f;
+            StartPhaseCountdown(m_respawnWaitTime);
 
-            while (m_timer.Value < m_respawnWaitTime)
+            while (m_phaseElapsed < m_respawnWaitTime)
             {
                 if (m_respawnConfirmed)
                 {
                     break;
                 }
 
-                m_timer.Value += Time.deltaTime;
+                m_phaseElapsed += Time.deltaTime;
 
                 yield return null;
             }

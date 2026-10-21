@@ -23,6 +23,7 @@ Follow the task specification and project documentation.
 - Do not silently change public APIs.
 - Do not invent missing classes, methods, or packages.
 - Do not modify scenes, prefabs, or assets unless required.
+- `Assets/Fonts/MPLUSRounded1c-Medium SDF.asset` is a dynamic font. Rendering text in the Editor changes it. Don't commit those changes: restore the file (`git restore`) before committing, unless the task deliberately changes the font settings (N28).
 
 ## Unity and multiplayer
 - Verify server/client execution context.

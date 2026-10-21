@@ -180,7 +180,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 10388797693652992
-    m_Localized: "\u0421\u0435\u0439\u0447\u0430\u0441 \u0445\u043E\u0434\u0438\u0442"
+    m_Localized: "Сейчас ходит: "
     m_Metadata:
       m_Items: []
   - m_Id: 10388868355092480
@@ -194,7 +194,7 @@ MonoBehaviour:
       m_Items:
       - rid: 564089522111119449
   - m_Id: 10389089290055680
-    m_Localized: "\u041E\u0436\u0438\u0434\u0430\u0435\u0442 \u0432\u043E\u0437\u0440\u043E\u0436\u0434\u0435\u043D\u0438\u044F"
+    m_Localized: "Возрождается: "
     m_Metadata:
       m_Items: []
   - m_Id: 10389174614781952

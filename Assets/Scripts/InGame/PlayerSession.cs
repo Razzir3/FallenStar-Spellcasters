@@ -80,6 +80,7 @@ public class PlayerSession : NetworkBehaviour
 
     private void Awake()
     {
+        m_debugMode = DebugModeGuard.Allow(m_debugMode);
         m_camera = Camera.main;
     }
 

@@ -8,6 +8,7 @@ public class LobbyControlUI : MonoBehaviour
     public static LobbyControlUI Instance;
 
     private MultiplayerManager m_multiplayerInstance;
+    private bool? m_lastConnected;
 
     [SerializeField]
     private GameObject m_lobbySearchPanel;
@@ -21,6 +22,7 @@ public class LobbyControlUI : MonoBehaviour
     #region UnityCallingFunc
     private void Awake()
     {
+        m_debugMode = DebugModeGuard.Allow(m_debugMode);
         Instance = this;
     }
     private void Start()
@@ -32,7 +34,7 @@ public class LobbyControlUI : MonoBehaviour
     {
         if (m_multiplayerInstance == null)
         {
-            FindMultiplayerManager();
+            m_multiplayerInstance = MultiplayerManager.Instance;
         }
         RefreshUI();
     }
@@ -87,6 +89,9 @@ public class LobbyControlUI : MonoBehaviour
     private void RefreshUI()
     {
         bool _connected = m_multiplayerInstance != null && m_multiplayerInstance.LobbyConnected();
+        if (m_lastConnected == _connected)
+            return;
+        m_lastConnected = _connected;
 
         if(m_lobbySearchPanel != null)
         {

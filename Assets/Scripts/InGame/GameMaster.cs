@@ -2,7 +2,6 @@ using System.Collections.Generic;
 using System.Collections;
 using System.Linq;
 using Unity.Netcode;
-using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using System.Runtime.CompilerServices;
@@ -118,7 +117,28 @@ public partial class GameMaster : NetworkBehaviour
     private bool m_isMatchEnded = false;
     private const ulong k_NoWinnerClientId = ulong.MaxValue;
 
-    public NetworkVariable<float> m_timer;
+    private float m_phaseElapsed;
+    private float m_phaseDuration;
+    public NetworkVariable<double> m_phaseEndServerTime = new NetworkVariable<double>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+
+    private void StartPhaseCountdown(float duration, float alreadyElapsed = 0f)
+    {
+        m_phaseDuration = duration;
+        m_phaseEndServerTime.Value = NetworkManager.ServerTime.Time + Mathf.Max(0f, duration - alreadyElapsed);
+    }
+
+    private void ClearPhaseCountdown()
+    {
+        m_phaseEndServerTime.Value = 0;
+    }
+
+    public int GetPhaseSecondsLeft()
+    {
+        if (m_phaseEndServerTime.Value <= 0 || NetworkManager == null)
+            return 0;
+
+        return Mathf.Max(0, Mathf.CeilToInt((float)(m_phaseEndServerTime.Value - NetworkManager.ServerTime.Time)));
+    }
 
     private bool m_externalDeathDetected = false;
 
@@ -127,6 +147,7 @@ public partial class GameMaster : NetworkBehaviour
     #region UnityCallingFunc
     private void Awake()
     {
+        m_debugMode = DebugModeGuard.Allow(m_debugMode);
         FindSpawnPoints();
         HideSpawnPoints();
 
@@ -147,7 +168,6 @@ public partial class GameMaster : NetworkBehaviour
             m_isInputLocked.Value = _locked;
 
         InputQueueUpdate();
-        //CardMessageQueueUpdate();
     }
     public override void OnNetworkSpawn()
     {
@@ -425,6 +445,7 @@ public partial class GameMaster : NetworkBehaviour
             return;
 
         m_isMatchEnded = true;
+        ClearPhaseCountdown();
         m_gamePhase.Value = GamePhase.GameOver;
         m_activePlayer.Value = default;
         m_waitingRespawnPlayer.Value = default;
@@ -471,6 +492,7 @@ public partial class GameMaster : NetworkBehaviour
             return;
 
         m_isAbortingMatch = true;
+        ClearPhaseCountdown();
         m_gamePhase.Value = GamePhase.None;
 
         Debug.LogError("GameMaster: match aborted. Reason: " + reason);
@@ -543,7 +565,8 @@ public partial class GameMaster : NetworkBehaviour
         m_activePlayer.Value = default;
         m_waitingRespawnPlayer.Value = default;
 
-        m_timer.Value = 0f;
+        m_phaseElapsed = 0f;
+        ClearPhaseCountdown();
         m_gamePhase.Value = GamePhase.None;
 
         if (SessionManager.Instance == null)

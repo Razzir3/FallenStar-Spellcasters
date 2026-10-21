@@ -398,27 +398,27 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1841656437115289521, guid: 97d94c31dec48924e9ba796668aef5e0, type: 3}
       propertyPath: m_AnchorMax.x
-      value: 0.5
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 1841656437115289521, guid: 97d94c31dec48924e9ba796668aef5e0, type: 3}
       propertyPath: m_AnchorMax.y
-      value: 0.5
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 1841656437115289521, guid: 97d94c31dec48924e9ba796668aef5e0, type: 3}
       propertyPath: m_AnchorMin.x
-      value: 0.5
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 1841656437115289521, guid: 97d94c31dec48924e9ba796668aef5e0, type: 3}
       propertyPath: m_AnchorMin.y
-      value: 0.5
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 1841656437115289521, guid: 97d94c31dec48924e9ba796668aef5e0, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 100
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 1841656437115289521, guid: 97d94c31dec48924e9ba796668aef5e0, type: 3}
       propertyPath: m_SizeDelta.y
-      value: 100
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 1841656437115289521, guid: 97d94c31dec48924e9ba796668aef5e0, type: 3}
       propertyPath: m_LocalPosition.x
@@ -486,7 +486,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4772283208930924661, guid: 97d94c31dec48924e9ba796668aef5e0, type: 3}
       propertyPath: m_fontSizeMin
-      value: 14
+      value: 24
+      objectReference: {fileID: 0}
+    - target: {fileID: 4772283208930924661, guid: 97d94c31dec48924e9ba796668aef5e0, type: 3}
+      propertyPath: m_fontSizeMax
+      value: 48
       objectReference: {fileID: 0}
     - target: {fileID: 4772283208930924661, guid: 97d94c31dec48924e9ba796668aef5e0, type: 3}
       propertyPath: m_overflowMode
@@ -611,8 +615,8 @@ MonoBehaviour:
   m_timeText: {fileID: 282301680}
   m_maxVisibleLines: 2
   m_autoSize: 1
-  m_minFontSize: 14
-  m_maxFontSize: 72
+  m_minFontSize: 24
+  m_maxFontSize: 48
   m_useEllipsis: 1
 --- !u!1 &352922479
 GameObject:
@@ -792,7 +796,7 @@ MonoBehaviour:
   m_ReferencePixelsPerUnit: 100
   m_ScaleFactor: 1
   m_ReferenceResolution: {x: 2560, y: 1600}
-  m_ScreenMatchMode: 0
+  m_ScreenMatchMode: 1
   m_MatchWidthOrHeight: 1
   m_PhysicalUnit: 3
   m_FallbackScreenDPI: 96

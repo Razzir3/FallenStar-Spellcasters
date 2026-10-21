@@ -4,6 +4,11 @@ using UnityEngine.Localization.Components;
 
 public class ResultMenuUI : MonoBehaviour
 {
+    private void Awake()
+    {
+        m_debugMode = DebugModeGuard.Allow(m_debugMode);
+    }
+
     [SerializeField] private LocalizeStringEvent m_titleText;
     [SerializeField] private LocalizeStringEvent m_reasonText;
     [SerializeField] private LocalizedString m_titleWin;

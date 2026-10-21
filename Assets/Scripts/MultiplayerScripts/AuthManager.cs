@@ -34,6 +34,7 @@ public class AuthManager : MonoBehaviour
     #region UnityCallingFunc
     private void Awake()
     {
+        m_debugMode = DebugModeGuard.Allow(m_debugMode);
         if(Instance !=null && Instance != this)
         {
             Destroy(gameObject);

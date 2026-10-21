@@ -178,7 +178,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 10388797693652992
-    m_Localized: Current turn
+    m_Localized: "Current turn: "
     m_Metadata:
       m_Items: []
   - m_Id: 10388868355092480
@@ -192,7 +192,7 @@ MonoBehaviour:
       m_Items:
       - rid: 564089522111119447
   - m_Id: 10389089290055680
-    m_Localized: Waiting for respawn
+    m_Localized: "Respawning: "
     m_Metadata:
       m_Items: []
   - m_Id: 10389174614781952

@@ -24,6 +24,7 @@ public class CardWorldViewManager : MonoBehaviour
 
     private readonly HashSet<PlayerSession> m_registeredSessions =
         new HashSet<PlayerSession>();
+    private readonly List<PlayerSession> m_sessionsToUnregister = new();
 
     [SerializeField]
     private bool m_debugMode = false;
@@ -34,6 +35,7 @@ public class CardWorldViewManager : MonoBehaviour
 
     private void Awake()
     {
+        m_debugMode = DebugModeGuard.Allow(m_debugMode);
         Debug.Log(
             $"CardWorldViewManager Awake called on {gameObject.name}.");
 
@@ -75,6 +77,16 @@ public class CardWorldViewManager : MonoBehaviour
     {
         if (SessionManager.Instance == null)
             return;
+
+        m_sessionsToUnregister.Clear();
+        foreach (PlayerSession session in m_registeredSessions)
+        {
+            if (session == null || !session.IsSpawned ||
+                !SessionManager.Instance.m_playerSessions.ContainsValue(session))
+                m_sessionsToUnregister.Add(session);
+        }
+        foreach (PlayerSession session in m_sessionsToUnregister)
+            UnregisterSession(session);
 
         if (SessionManager.Instance.m_playerSessions.Count ==
             m_registeredSessions.Count)
@@ -343,7 +355,11 @@ public class CardWorldViewManager : MonoBehaviour
     public void UnregisterSession(PlayerSession session)
     {
         if (session == null)
+        {
+            if (m_registeredSessions.Remove(session))
+                RefreshAllSessions();
             return;
+        }
 
         if (!m_registeredSessions.Contains(session))
             return;

@@ -3,7 +3,7 @@ using TMPro;
 using Unity.Netcode;
 using UnityEngine.Localization;
 using UnityEngine.Localization.Settings;
-using Unity.VisualScripting;
+using System.Collections.Generic;
 
 public enum PlayerColorId
 {
@@ -16,6 +16,14 @@ public class GameAnnouncerUI : MonoBehaviour
     [SerializeField] private TMP_Text m_timeText;
 
     private const string UI_TABLE = "UI_table";
+    private readonly Dictionary<string, LocalizedString> m_localizedStrings = new();
+    private readonly HashSet<string> m_truncatedTexts = new();
+    private bool m_hasAnnouncerState;
+    private GamePhase m_lastPhase;
+    private int m_lastSeconds, m_lastTeam;
+    private ulong m_lastTargetId;
+    private bool m_lastHasTarget, m_lastIsLocalPlayer;
+    private Locale m_lastLocale;
 
     [Header("Announcer Text Format")]
     [SerializeField, Min(1)] private int m_maxVisibleLines = 2;
@@ -47,15 +55,38 @@ public class GameAnnouncerUI : MonoBehaviour
     {
         if(m_timeText == null || GameMaster.Instance == null)
         {
+            m_hasAnnouncerState = false;
             return;
         }
 
         GamePhase _currentPhase = GameMaster.Instance.m_gamePhase.Value;
 
-        string _phaseText = GetLocalized(GetPhaseLocalizationKey(_currentPhase));
-        string _timerText = ((int)GameMaster.Instance.m_timer.Value).ToString("00");
-
         PlayerSession _targetSession = GetTargetSession(_currentPhase);
+        int _seconds = GameMaster.Instance.GetPhaseSecondsLeft();
+        bool _hasTarget = _targetSession != null;
+        ulong _targetId = _hasTarget ? _targetSession.NetworkObjectId : 0;
+        int _teamId = _hasTarget ? _targetSession.TeamId.Value : -1;
+        bool _isLocalPlayer = _hasTarget && SessionManager.Instance != null &&
+            SessionManager.Instance.LocalPlayer != null &&
+            _targetId == SessionManager.Instance.LocalPlayer.NetworkObjectId;
+        Locale _locale = LocalizationSettings.SelectedLocale;
+
+        if (m_hasAnnouncerState && m_lastPhase == _currentPhase && m_lastSeconds == _seconds &&
+            m_lastHasTarget == _hasTarget && m_lastTargetId == _targetId && m_lastTeam == _teamId &&
+            m_lastIsLocalPlayer == _isLocalPlayer && m_lastLocale == _locale)
+            return;
+
+        m_hasAnnouncerState = true;
+        m_lastPhase = _currentPhase;
+        m_lastSeconds = _seconds;
+        m_lastHasTarget = _hasTarget;
+        m_lastTargetId = _targetId;
+        m_lastTeam = _teamId;
+        m_lastIsLocalPlayer = _isLocalPlayer;
+        m_lastLocale = _locale;
+
+        string _phaseText = GetLocalized(GetPhaseLocalizationKey(_currentPhase));
+        string _timerText = _seconds.ToString("00");
 
         if(_targetSession == null)
         {
@@ -63,12 +94,8 @@ public class GameAnnouncerUI : MonoBehaviour
             return;
         }
 
-        int _teamId = _targetSession.TeamId.Value;
-
         string _colorName = GetLocalized(GetPlayerColorLocalizationKey(_teamId));
         string _colorHex = GetPlayerColorHex(_teamId);
-
-        bool _isLocalPlayer = SessionManager.Instance.LocalPlayer != null && _targetSession.NetworkObjectId == SessionManager.Instance.LocalPlayer.NetworkObjectId;
 
         string _prefixKey = "";
         string _coloredPartKey = "";
@@ -152,10 +179,12 @@ public class GameAnnouncerUI : MonoBehaviour
 
     private string GetLocalized(string key, params object[] args)
     {
-        LocalizedString _localizedString = new LocalizedString(UI_TABLE, key)
+        if (!m_localizedStrings.TryGetValue(key, out LocalizedString _localizedString))
         {
-            Arguments = args
-        };
+            _localizedString = new LocalizedString(UI_TABLE, key);
+            m_localizedStrings.Add(key, _localizedString);
+        }
+        _localizedString.Arguments = args;
         return _localizedString.GetLocalizedString();
     }
 
@@ -169,6 +198,8 @@ public class GameAnnouncerUI : MonoBehaviour
         ApplyAnnouncerTextFormat();
 
         m_timeText.ForceMeshUpdate();
+        if (m_timeText.isTextTruncated && m_truncatedTexts.Add(m_timeText.text))
+            Debug.LogWarning($"Announcer text truncated: {m_timeText.text}");
     }
 
     private void ApplyAnnouncerTextFormat()

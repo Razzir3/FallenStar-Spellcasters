@@ -1,29 +1,16 @@
 # Game Loop, Phases and Match State
 
-- **Audit date:** 2026-10-18
-- **Baseline:** commit `1f6d2f1` plus the uncommitted working tree
-- **Method:** static code reading only. No Play Mode run.
+- **Updated:** 2026-10-20 (TASK-N8 refresh). First audit: 2026-10-18.
+- **Code baseline:** commit `391e079` **plus the uncommitted working tree** with tasks L1, L2/N31, N30, N17, L6, L7, L9, L10 and N28 ([implementation report](../Reports/2026-10-20_L1_L2_N31_N30_N17_L6_L7_L9_L10_N28_Implementation.md)). Claude has not reviewed that working tree yet.
+- **Method:** static code reading. Runtime evidence is named where it exists. Nothing here was run for this update.
 - Tags **[Confirmed] / [Unfinished] / [Unknown] / [Risk]** are defined in [Architecture.md](Architecture.md).
-- Line numbers refer to the current working-tree files.
+- File and method names are given instead of line numbers.
 
 **Primary sources:**
-- `InGame/GameMaster.cs`
-- `InGame/GameMaster/GameMaster.GameLoop.cs`
-- `GameMaster.PackageManaging.cs`
-- `GameMaster.Processing.cs`
-- `GameMaster.Card.cs`
-- `GameMaster.Spawn.cs`
-- `InGame/PlayerSession.cs`
-- `InGame/PlayerController.cs`
-- `InGame/LavaKillZone.cs`
-- `MultiplayerScripts/MultiplayerManager.cs`
-- `MultiplayerScripts/SessionManager.cs`
-- `Bootstrap.cs`
-- `Manager/SceneFlowManager.cs`
-- `UI/PlayerUI.cs`
-- `UI/GameAnnouncerUI.cs`
-- `UI/ConfirmTargetButtonUI.cs`
-- `UI/ConfirmSendButton.cs`
+- `InGame/GameMaster.cs` and `InGame/GameMaster/GameMaster.*.cs` (GameLoop, PackageManaging, Processing, Card, Spawn, Player, PlayerCardWorldArea)
+- `InGame/PlayerSession.cs`, `InGame/PlayerController.cs`, `InGame/BlockController.cs`, `InGame/NetworkCard.cs`, `InGame/LavaKillZone.cs`, `InGame/MatchResultData.cs`
+- `MultiplayerScripts/MultiplayerManager.cs`, `MultiplayerScripts/SessionManager.cs`, `Bootstrap.cs`, `Manager/SceneFlowManager.cs`
+- `UI/PlayerUI.cs`, `UI/GameAnnouncerUI.cs`, `UI/LeaveMatchUI.cs`, `UI/ResultMenuUI.cs`, `UI/CurrentLobbyUI.cs`
 
 ---
 
@@ -31,174 +18,185 @@
 
 | Step | Trigger (UI → method) | Scene call | Status |
 |---|---|---|---|
-| App start | `LoginScene`/`AppRoot`: `MultiplayerManager.Start` → `AuthManager.Initialize` → `Bootstrap.RecreateNetworkManager` → `SubscribeNetworkEvents` → `InvokeRepeating(HearthbeatLobby, 15, 15)` | — | [Confirmed] |
-| Login | `LoginUI.OnClickLoginAnonymous` → `AuthManager.SingInAnonymous` (in the Editor, `SwitchProfile("Editor_"+hash(dataPath))` gives ParrelSync clones distinct ids) | `SceneFlowManager.LoadMainMenuScene` → `SceneManager.LoadScene` | [Confirmed] |
-| Steam login | `LoginUI.OnClickLoginSteam` → `AuthManager.SignInSteam` only logs "not ready" | — | [Unfinished] |
-| Menu → Lobby | `MainMenuUI.OnClickLobby` | `LoadLobbyScene` (offline) | [Confirmed] |
-| Create lobby | `LobbyControlUI.OnClickCreateLobby` → `MultiplayerManager.StartHost` → `RecreateNetworkManager` → `CreateRelay` (`StartHost()`) → `LobbyService.CreateLobbyAsync(GetShortPlayerId(), 2, options)` | — | [Confirmed] |
-| Join lobby | `LobbyListUI.OnClickRefreshLobbyList` → `FindAvailableLobbies`. Then `LobbyListItemUI.OnClickJoin` → `LobbyListUI.OnJoinLobbyClicked` → `MultiplayerManager.JoinLobbyById` → `JoinRelay` (`StartClient()`, waits ≤10 s for connect) | — | [Confirmed] |
-| Join by code | M11: `JoinLobbyByJoinCode` and `m_joinCodeInput` are retained as comments, excluded from compilation | — | Parked by owner decision; restoration requirements are in TASK-M11 |
-| Lobby polling | `CurrentLobbyUI.RefreshLobbyLoop` runs every 2 s: `RefreshCurrentLobby`, and shows the Start button for the host when the lobby has 2 players | — | [Confirmed] |
-| Start match | `CurrentLobbyUI.OnClickStartGame` → `MultiplayerManager.StartGameScene` → coroutine `StartGameSceneWhenReady`, which waits until 2 NGO clients connect (≤10 s) and re-checks the lobby | `SceneFlowManager.LoadGameSceneNetwork` → `NetworkManager.SceneManager.LoadScene("GameScene", Single)` | [Confirmed] |
-| Game scene ready | `MultiplayerManager.OnLoadEventCompleted` (all peers) → server only: `Bootstrap.RecreateGameMaster` → `StartGameAfterSceneReady` | — | [Confirmed] |
-| Settings | M12: `MainMenuUI.OnClickSettings` → `SceneFlowManager.LoadSettingsScene`; SettingsUI changes/persists locale; SettingsSceneButtonsUI returns to Main menu | Offline SettingsScene load; enabled after MainMenuScene | Implemented; en/ru/ja navigation and restart persistence checked |
-| End of match → Result | Not implemented | — | [Unfinished] |
-| Disconnect / connection loss | `DisconnectMenuUI` / `LobbyControlUI.OnClickLeaveLobby` → `MultiplayerManager.Disconnect`, or NGO `OnClientDisconnectCallback` → `HandleLostConnectionToHost` → `CleanupAfterDisconnect` | `LoadLobbyScene` (offline) | [Confirmed] |
+| App start | `LoginScene` / `AppRoot`: `MultiplayerManager.Start` → `AuthManager.Initialize` → `Bootstrap.RecreateNetworkManager` → `SubscribeNetworkEvents` → `InvokeRepeating(HearthbeatLobby, 15, 15)`. `Bootstrap.Start` applies the saved language. | — | [Confirmed] |
+| Login | `LoginUI` → `AuthManager.SingInAnonymous`. In the Editor, `ApplyEditorProfile` switches to the profile `"Editor_" + hash(dataPath)`, so ParrelSync clones get their own player IDs. | `SceneFlowManager.LoadMainMenuScene` | [Confirmed] |
+| Steam login | `AuthManager.SignInSteam` only logs "not ready" | — | [Unfinished] |
+| Main menu | `MainMenuUI.OnClickLobby` / `OnClickSettings` / `OnClickExit` | `LoadLobbyScene` / `LoadSettingsScene` (offline) | [Confirmed] |
+| Settings | `SettingsUI.OnLanguageChanged` sets the locale and writes `GameSettingsPrefs.LanguageCode`. `SettingsSceneButtonsUI` goes back to the main menu. | `SettingsScene` (offline) | [Confirmed]. The owner's build run (2026-10-20) kept the saved language. |
+| Create lobby | `LobbyControlUI.OnClickCreateLobby` → `MultiplayerManager.StartHost`: `RecreateNetworkManager` → `CreateRelay` (`StartHost()`) → `LobbyService.CreateLobbyAsync(GetShortPlayerId(), 2, options)` | — | [Confirmed] |
+| Join lobby | `LobbyListUI.OnClickRefreshLobbyList` → `FindAvailableLobbies`. Then `LobbyListItemUI` → `LobbyListUI.OnJoinLobbyClicked` → `MultiplayerManager.JoinLobbyById` → `JoinRelay` (`StartClient()`, waits up to 10 s to connect) | — | [Confirmed] |
+| Join by code | `JoinLobbyByJoinCode` and `m_joinCodeInput` are commented out. `m_lobbyCode` / `m_lobbyCodePanel` stay serialized for it. | — | Parked by the owner (M11) |
+| Lobby polling | `CurrentLobbyUI.RefreshLobbyLoop` calls `RefreshCurrentLobby` every 2 s. It shows the Start button to the host when the lobby has 2 players. | — | [Confirmed]. Throttling: see below. |
+| Start match | `CurrentLobbyUI.OnClickStartGame` → `MultiplayerManager.StartGameScene` → coroutine `StartGameSceneWhenReady`. It waits up to 10 s for 2 connected NGO clients, refreshes the lobby once, then checks for 2 lobby players. | `SceneFlowManager.LoadGameSceneNetwork` → `NetworkManager.SceneManager.LoadScene("GameScene", Single)` | [Confirmed] |
+| Game scene ready | `MultiplayerManager.OnLoadEventCompleted` (all peers). Server only: abort if any client timed out, then `Bootstrap.RecreateGameMaster` → `StartGameAfterSceneReady` (§2) | — | [Confirmed] |
+| End of match → Result | `GameMaster.EndMatch` → `MatchEndedClientRpc` → `MatchResultData.Set` → `MultiplayerManager.LeaveMatchToResultScene` (§3.8) | `LoadResultScene` (offline) | [Confirmed]. Seen in the owner's runs. |
+| Leave match | `LeaveMatchUI` confirm → `PlayerSession.RequestLeaveMatch` → `LeaveMatchServerRpc` → `GameMaster.HandlePlayerSurrender` → `EndMatch(…, Surrendered)` | via Result | [Confirmed] |
+| Result → menu | `ResultMenuUI.OnClickMainMenu` clears `MatchResultData` | `LoadMainMenuScene` | [Confirmed] |
+| Leave lobby / connection loss | `LobbyControlUI.OnClickLeaveLobby` → `MultiplayerManager.Disconnect`, or NGO `OnClientDisconnectCallback` → `HandleLostConnectionToHost` → `CleanupAfterDisconnect` | `LoadLobbyScene` (offline) | [Confirmed] |
 
-`MultiplayerManager.Update` toggles `DisconnectMenuUI` with Tab while in lobby or game. **[Unknown]** `DisconnectMenuUI` is only placed in the disabled `SampleScene`/`MultiplayerScene`, so Tab probably does nothing in `GameScene`/`LobbyScene`. `DisconnectButtonUI` is not referenced by any scene or prefab.
+### Lobby errors and refresh throttling
 
-### Lobby/network error containment (M10, 2026-10-20)
-
-- Startup observes authentication and NetworkManager recreation errors independently, then still attempts event subscription and schedules the existing 15-second heartbeat. Quit, lost-host removal, host/client lobby removal, heartbeat, host start, lobby search, join-by-ID, Relay join and lobby refresh retain their specific service catches and also log unexpected exceptions.
-- Failed host start shuts down a listening NetworkManager and clears the local lobby/menu status. A failed join attempts membership removal and clears local lobby state; exception paths also shut down a listening NetworkManager. The failed-join removal helper contains its own unexpected service exceptions so recovery can finish. Relay reports its failure once on the active join-by-ID path. Join-by-code and the unused DisconnectClient remain separate task/non-goal code.
-- `RefreshCurrentLobby` returns `Task<bool>`: failures retain the cached lobby and return false. The startup coroutine warns before continuing the existing last-known-lobby and two-connected-client checks. `CurrentLobbyUI` continues to await the result without needing a signature change of its own.
-- A thrown GameMaster recreation logs the exception and calls the existing N14 `AbortGameStart("game_master_create_failed")`. Existing timeout reasons, successful call order, result transitions, heartbeat interval and timeouts are retained. Remote cleanup during a service outage remains a best-effort request; local recovery does not establish immediate deletion/removal at UGS.
-
-M11/M13 (2026-10-20): join-by-code is parked unchanged inside comments. Active host/list-join calls retain protocol role values Host/Client through constants, while shared player/lobby names use the first six player-ID characters (numeric fallback when empty). Viewers localize role labels, counts and unknown-name fallbacks using UI_table. Locale subscriptions are balanced; existing list/player prefabs rely on field initializers without asset edits. Real prefab checks passed in en/ru/ja using local sample Lobby/Player data; live service create/join regression remains manual.
+- **M10:** every Lobby/Relay call has its own service catch and also logs unexpected exceptions. A failed host start shuts the NetworkManager down and clears the lobby state (`ResetAfterFailedHostStart`). A failed join removes the player from the lobby (`LeaveCurrentLobbyAfterFailedJoin`) and shuts down. Remote cleanup during a service outage is best effort.
+- **N30:** `RefreshCurrentLobby` returns `Task<bool>`:
+  - Callers share the refresh in flight for the current lobby (`m_lobbyRefreshTask`). A refresh younger than `m_minLobbyRefreshInterval` (1.5 s, serialized) returns the cached lobby.
+  - A second chain (`m_lobbyRefreshInFlightTask`, `m_lastGlobalLobbyRefreshTime`) keeps `GetLobbyAsync` calls one at a time and at least 1.5 s apart, even across lobby changes (owner decision).
+  - A result is kept only if the lobby ID is still the current one. `LobbyExceptionReason.RateLimited` logs a warning; other errors are logged. A failure keeps the last known lobby and returns `false`.
+- `StartGameSceneWhenReady` warns on a failed refresh and continues with the last known lobby.
 
 ---
 
 ## 2. Match bootstrap (server)
 
-`MultiplayerManager.StartGameAfterSceneReady` does the following:
+`MultiplayerManager.StartGameAfterSceneReady`:
 
-N14 (2026-10-19): the server rejects a GameScene load completion with any timed-out clients before recreating GameMaster. Missing/unlinked GameMaster checks call `AbortGameStart("game_master_missing")`. `AbortGameStart` logs the reason and delegates to `GameMaster.AbortMatch`, or directly to `Disconnect` when no GameMaster exists. This reuses host lobby deletion, network shutdown, cleanup and the offline return to `LobbyScene`; no match result is generated before play starts.
+1. It waits up to 10 s for `SessionManager.Instance`. `SessionManager` is placed in `GameScene`. Its `OnNetworkSpawn` calls `CreateSessionsForAlreadyConnectedClients` → `CreateSession(clientId)` for each client:
+   - Instantiate `PlayerSessionPrefab`. `GetFreeSlot` gives the slot index (0–3, −1 when full), which becomes the team.
+   - `PlayerSession.Initialize(clientId, team)` only stores pending values and the 3 lives (N2).
+   - `SpawnWithOwnership(clientId)`. The server's `OnNetworkSpawn` → `ApplyPendingInit` writes `ClientId`, `TeamId` and `m_lifeCurrent` before the spawn message is sent.
+   - Add the session to `m_playerSessions` and to the NetworkList `SessionDataList`. Clients rebuild `m_playerSessions` from that list.
+2. It waits up to 10 s until there are 2 sessions.
+   - Both waits abort through `AbortGameStart`: `session_manager_missing` or `not_enough_sessions` on timeout, `player_left_before_start` as soon as the NetworkManager is gone, stops listening or has fewer than 2 clients.
+   - The client count is checked again right before spawning.
+3. `GameMaster.SpawnPlayers()`. For each session with `SessionRole.Player`:
+   - `CreateBlock`: 25 blocks (5×5, 3 m apart) below the team's scene `SpawnPoint`. Each block is spawned with `SpawnWithOwnership(client, true)`, then `BlockController.Initialize` and `PlayerSession.AddBlock` (which sets the child `SpawnPoint` team).
+   - `SpawnCharacter`: a random free scene `SpawnPoint` for the team, then `SpawnAsPlayerObject(client)`. The server's `PlayerController.OnNetworkSpawn` → `Init` sets HP 100/100 and speed 3 (N22). Then `SessionObjectId`, `PlayerController.Initialize`, `CharacterObjectId`, `SetSpawnPoint`, `SetCharacter`, and `MovePlayeToSpawnPoint` (3 units up).
+   - Then `BindPlayerCardWorldAreas`, and `MultiplayerManager.m_currentMultiplayerStatus = InGameStatus`.
+4. `GameMaster.StartNewGame()`:
+   - Stop the old loop. `DespawnAllCards`. Reset queues, flags, `m_isInputLocked`, `m_selectionPhaseId`, the countdown and the phase.
+   - Collect the sessions. If `SessionManager` is missing or there aren't exactly 2 players: `AbortMatch("match_start_failed")`.
+   - Mana: capacity = `Clamp(m_baseMana, 0, m_maxMana)`, current = capacity.
+   - `SetOponent` on both players, `CreateDeck()`, `StartCoroutine(RunGuarded(GameLoop()))`.
 
-1. It waits ≤10 s for `SessionManager.Instance`. `SessionManager` is in-scene placed in `GameScene`. Its `OnNetworkSpawn` calls `CreateSessionsForAlreadyConnectedClients`, which calls `CreateSession(clientId)` for each connected client:
-   - Instantiate `PlayerSessionPrefab`.
-   - `GetFreeSlot` assigns slot index → `TeamId`, from 0 to 3, or −1 when full.
-   - N2: `Initialize` stores pending client/team IDs and maximum lives (3), without NetworkVariable writes.
-   - `SpawnWithOwnership(clientId)` synchronously invokes server OnNetworkSpawn, applying the pending IDs and 3 lives before client spawn messages are sent.
-   - Add to `m_playerSessions` and `SessionDataList`.
-
-   Clients rebuild `m_playerSessions` from the NetworkList `SessionDataList`.
-2. It waits ≤10 s until `m_playerSessions.Count >= 2`. Both waits abort through `AbortGameStart` on timeout (`session_manager_missing` / `not_enough_sessions`), or immediately when NetworkManager is missing, stops listening or has fewer than two connected clients (`player_left_before_start`). Disappearance of SessionManager during the second wait also aborts safely. The connection check is repeated before spawning, including when neither wait was needed.
-3. It calls `GameMaster.SpawnPlayers()` (`GameMaster.Spawn.cs:210`). For each session with `SessionRole.Player`:
-   - `CreateBlock`: 25 blocks around the team's scene `SpawnPoint` (5×5, 3 m pitch), each `SpawnWithOwnership(client)`. Then `BlockController.Initialize`, then `PlayerSession.AddBlock`, which re-initializes the child `SpawnPoint` team.
-   - `SpawnCharacter`: random free scene `SpawnPoint` for the team, then `SpawnAsPlayerObject(client)` (N22 initializes HP 100/100 and speed 3 synchronously on the server), `SessionObjectId`, `CharacterObjectId`, `SetSpawnPoint`, and finally `MovePlayeToSpawnPoint`, which moves the character 3 units up. Materials still wait for the session binding.
-   - Finally it runs `BindPlayerCardWorldAreas` and sets `MultiplayerStatus.InGameStatus`.
-4. It calls `GameMaster.StartNewGame()` (`GameMaster.cs:364`):
-   - Stop the previous coroutine.
-   - `DespawnAllCards`.
-   - Reset all state and NetworkVariables.
-   - Collect players from `SessionManager.m_playerSessions`. A missing SessionManager or a count other than exactly 2 logs and calls `AbortMatch("match_start_failed")`, then returns without starting.
-   - `SetOponent` on both players.
-   - `CreateDeck`.
-   - `StartCoroutine(GameLoop())`.
-
-`GameMaster.Awake` runs on instantiation, after `GameScene` is loaded. It calls `FindSpawnPoints`, `HideSpawnPoints` and `FindPlayerCardWorldAreas`, and only finds scene objects that exist at that moment. That means the two scene spawn points, team 0 and team 1, but not the block spawn points. **[Confirmed]**
-
-`SpawnPanelUI.OnClickSpawnPlayers` also calls `SpawnPlayers()`, but that panel exists only in disabled legacy scenes. **[Confirmed]**
-
-N14 leaves the H6 `HandlePlayerLeft` and all existing disconnect/result cleanup methods unchanged. A disconnect after the match loop starts still uses the established forfeit path. Isolated source checks passed for startup failures and normal startup; real host/client timing, lobby deletion and subsequent-match behavior still require Play Mode verification.
+`GameMaster.Awake` (on spawn, after `GameScene` loads) runs `FindSpawnPoints`, `HideSpawnPoints` and `FindPlayerCardWorldAreas`. It finds only the objects that exist then: the two scene spawn points (team 0 and 1), not the block spawn points. **[Confirmed]**
 
 ---
 
 ## 3. Phase state machine (server coroutine)
 
-Enum `GamePhase` (`GameMaster.cs`): `None, RoundBreak, DrawCards, CardSelection, PlayerAction, ResolveCards, RespawnWait, RoundEnd`.
+`enum GamePhase` (`GameMaster.cs`): `None, RoundBreak, DrawCards, CardSelection, PlayerAction, ResolveCards, RespawnWait, RoundEnd, GameOver`.
 
 ```
-GameLoop()  (GameLoop.cs:44)
+StartNewGame → RunGuarded(GameLoop())
+GameLoop()
  while !IsGameFinished():
-   RoundBreakPhase      phase=RoundBreak; m_timer 0→m_roundBreakTime (5 s)
-   DrawCardPhase        (phase NOT changed – stays RoundBreak)
-                        m_startHandCards(2) × players: DrawCard, wait m_cardDrawDelay (0.8 s)
-   CardSelectionPhase   phase=CardSelection; new PlayerTurnSelection per player;
-                        wait until all confirmed or m_cardSelectionTime (60 s);
-                        BuildTurnOrderByCardCost (descending total cost of play+discard)
+   RoundBreakPhase      phase = RoundBreak; mana growth; wait m_roundBreakTime (5 s)
+   DrawCardPhase        phase stays RoundBreak; m_startHandCards (2) × players:
+                        DrawCard, then an interruptible m_cardDrawDelay (0.8 s)
+   CardSelectionPhase   phase = CardSelection; m_selectionPhaseId++; new PlayerTurnSelection
+                        per player; wait for both confirms or m_cardSelectionTime (60 s);
+                        BuildTurnOrderByCardCost
    PlayerTurnPhase      for each player in m_turnOrder:
-                          m_activePlayer = player
-                          PlayerActionPhase(player)        (≤ m_playerActionTime 60 s)
-                          if IsGameFinished → stop
+                          m_activePlayer = player; PlayerActionPhase (≤ m_playerActionTime 60 s)
+                          stop if IsGameFinished
                         m_activePlayer = null
- Debug.LogError("Game finished. You won/lost")   ← end of match (server log only)
+ winner = the only player with a character or lives > 0 (else null = draw)
+ EndMatch(winner, LivesDepleted)
 ```
 
-### Deck exhaustion and refill (H2, 2026-10-19)
+Each phase checks `IsGameFinished` first, then a death (`m_externalDeathDetected || IsAnyPlayerDead`), then finish again. The outer loop also checks finish between phases.
 
-- `DrawCardPhase` and DrawCard activities share `DrawCard`. It rejects a null session before modifying cards and removes null entries at the front of the deck.
-- An empty deck calls server-only `RefillDeck` once per draw. The server first despawns spawned graveyard cards with destruction enabled, destroys unspawned graveyard objects, removes those cards from `m_spawnedCards` and clears the graveyard. It then calls `CreateDeck(m_refillDeckMaxRarity)` (default `Rare`). Cards in hands and on boards are retained.
-- `CreateDeck` skips null database entries and rarities above its optional limit; the default `Unique` preserves the initial deck. Section limits, copy batches, spawn path and shuffle remain unchanged.
-- A still-empty deck logs a warning and returns without drawing. A successful draw keeps the existing hand assignment, ownership and owner-targeted identity RPC. No new phase or yield is introduced.
-- Isolated source checks passed for refill ordering, rarity ceilings, repeated cleanup, owner-targeted draws and empty pools. Actual network spawn/despawn replication and UI behavior still require host/client Play Mode checks.
+### 3.1 Countdown (L1)
 
-### Mana at match start and RoundBreak (MANA1, 2026-10-19)
+- The loop counts time in private `m_phaseElapsed` against `m_phaseDuration`. Clients see one server-written NetworkVariable, `m_phaseEndServerTime` (a `double` in server time).
+- `StartPhaseCountdown(duration, alreadyElapsed)` is called at the start of RoundBreak, drawing (duration = draws × delay), CardSelection, PlayerAction and each respawn wait. It's also called when a rejected selection resets the timer (§3.4), and on resume after a death pause with the time already used. Nothing writes the deadline each frame.
+- `ClearPhaseCountdown` runs in `EndMatch`, `AbortMatch` and `StartNewGame`.
+- `GetPhaseSecondsLeft()` = ceiling of (deadline − `NetworkManager.ServerTime.Time`), never below 0. `GameAnnouncerUI` shows it as two digits.
 
-- `StartNewGame` initializes both spawned sessions after the two-player check: capacity = `Clamp(m_baseMana, 0, m_maxMana)` and current = capacity. Defaults are base 2, growth step 2, cap 20.
-- At the start of `RoundBreakPhase`, after assigning `GamePhase.RoundBreak`, the server calls `ApplyRoundManaGrowth` for each player. Round one only refills; later rounds increase capacity by the step up to the cap, then refill current to capacity. The local first-round flag resets on each new `GameLoop`.
-- `ApplyRoundManaGrowth` is the single extension point for changing the round-growth/refill model. `AddMana(player, delta)` is a server-only helper for later spending/effects, clamped to `[0, capacity]`.
-- `PlayerSession.m_manaCapacity` and `m_manaCurrent` are server-written NetworkVariables readable by everyone. Mana is not written in `PlayerSession.Initialize`; turn order is unchanged. Selection spending and mana display are described below.
-- These paths were checked statically; host/client replication and round progression still require Play Mode verification.
+### 3.2 RoundBreak and mana (MANA1)
 
-### Hand limit after drawing (M15, 2026-10-20)
+- `RoundBreakPhase` sets the phase, then `ApplyRoundManaGrowth` for each player:
+  - Round one only refills.
+  - Later rounds add `m_manaGrowthStep` (2) up to `m_maxMana` (20), then refill.
+- `ApplyRoundManaGrowth` is the single place for the growth rule. `AddMana(player, delta)` is the server-only helper, clamped to `[0, capacity]`.
+- `PlayerSession.m_manaCapacity` / `m_manaCurrent` are server-written NetworkVariables that everyone can read.
 
-- A successful DrawCard, from either round draws or Clarity, invokes server-only DiscardOldestOverHandLimit after removing the drawn card from the deck. The additive `m_maxHandCards` defaults to 10; zero/negative disables the rule. Failed draws do not discard anything.
-- Hand-list order is draw age. The helper copies uncommitted IDs, excluding both board-play and board-discard lists, and removes the oldest excess through the existing MoveCardOnGraveyard path. Stale IDs are removed with the existing list helper. Committed cards remain protected and the newly drawn card remains newest.
-- One owner-targeted HandLimitDiscardClientRpc per event shows `hand_limit_discard`. Clients prune null/no-longer-held cards from local selections on hand rebuild and immediately before ordinary confirmation. N26 additionally clears both local selection lists at a new selection phase; same-phase respawn pauses preserve valid selections.
-- PlayerUI's shared message helper remembers the active LocalizedString, so both mana and hand-limit messages refresh on locale changes while retaining the current deadline. Expiry and ClearLocalUI clear that reference. The HUD prefab adds only the hand-limit localization reference.
+### 3.3 Drawing, deck refill and hand limit
 
-### Mana validation at selection confirm (MANA2)
+- `DrawCard(session)` (`GameMaster.Card.cs`) rejects a null session and skips null cards at the front of the deck.
+- **H2:** an empty deck calls `RefillDeck` once per draw. It despawns or destroys the graveyard cards, removes them from `m_spawnedCards`, then calls `CreateDeck(m_refillDeckMaxRarity)` (default `Rare`). Cards in hands and on boards stay. If the deck is still empty, the draw logs a warning and does nothing.
+- A drawn card goes to `m_handCards`, gets `SetOwner`, and its identity goes **only to its owner** through `SendCardDataClientRpc`.
+- **M15:** after each successful draw, `DiscardOldestOverHandLimit` keeps at most `m_maxHandCards` (10; 0 or less = no limit) cards that aren't committed to the board. The oldest extra cards go through `MoveCardOnGraveyard`. The owner gets one `HandLimitDiscardClientRpc` (message `hand_limit_discard`).
+- Deck building: see [Architecture.md §6](Architecture.md#6-cards-deck-and-effects).
 
-- The client refuses additional play cards whose combined cost exceeds current mana, and refuses cards whose data has not arrived. Deselection and free discards keep their existing behavior.
-- The server first filters card IDs using the existing ownership, hand and duplicate checks, still recording invalid IDs. It then checks only the accepted play-card cost. A valid first confirm spends that cost through `AddMana` and marks the selection confirmed before the caller writes the board. Later confirms are ignored.
-- An over-budget confirm leaves mana and board unchanged, clears both server selection lists, remains unconfirmed and records `ManaOverBudget`. The owner-targeted `SelectionRejectedClientRpc` clears local selection/target state and UI highlights, and triggers the MANA3 localized message.
-- Rejection resets the shared selection timer to zero only while both per-player limits permit it: one reset per selection phase and three per match by default. Phase counters clear in `CardSelectionPhase`; match counters clear in `StartNewGame`. Further over-budget attempts still reject and record suspicion without resetting the timer.
-- Selection still ends only after both valid confirms or timeout. A player without a valid confirm plays nothing and spends nothing. Turn order still includes both play and discard costs; casting is unchanged.
-- Thirty focused local-host Play Mode assertions passed for gating, spending, rejection, owner-side clearing, timer limits, valid retries and timeout behavior. Remote-peer rejection delivery and full-match behavior still require verification.
+### 3.4 CardSelection and confirm validation
 
-### Mana display and rejection feedback (MANA3)
+- **Client:** `PlayerSession.SelectCardToPlay` refuses a card whose data hasn't arrived, and any card that would push the play cost over current mana. Discards are free.
+- **Client clean-up:** before sending, `ConfirmTurn` prunes selections that are no longer in the hand. When `m_selectionPhaseId` changes (a new selection phase), `PlayerUI.OnSelectionPhaseChanged` clears both local lists (N26). A death pause inside the same phase doesn't change the ID, so selections survive it.
+- **Server** (`HandleConfirmSelectionTurn`, called by `HandleConfirmTurn`):
+  - `ValidateSelectionCards` accepts only non-zero, non-duplicate IDs that are in the hand, owned by the session and have card data. Rejected IDs are logged and recorded as `InvalidCardSelection`.
+  - If the accepted play cost exceeds current mana: both lists are cleared, the selection stays unconfirmed, `ManaOverBudget` is recorded, and the owner gets `SelectionRejectedClientRpc` (it clears the local selection; `PlayerUI` shows `mana_not_enough` for 2 s).
+  - A rejection resets the selection timer through `ResetCardSelectionTimer`, at most `m_maxSelectionTimerResetsPerPhase` (1) per phase and `m_maxSelectionTimerResetsPerMatch` (3) per match for each player.
+  - Otherwise the cost is spent with `AddMana`, the selection is confirmed, and the caller writes the accepted cards to `m_boardPlayCards` (`m_isRotated = false`) and `m_boardDiscardCards` (`m_isRotated = true`). Their identities go to all clients. Later confirms in the same phase are ignored.
+- The phase ends when both have confirmed, or on timeout. A player without a valid confirm plays nothing and spends nothing.
+- `BuildTurnOrderByCardCost` sorts players by `PlayerTurnSelection.TotalCost()` (play + discard cost), highest first.
 
-- `PlayerUI` displays local and opponent mana as current / capacity. It resolves the opponent through the local session's `m_currentOponentNetworkObjectId` and `GameMaster.GetSessionByID`; an unavailable opponent clears that label.
-- Each mana label caches its last two integer values, formatting only when they change. Locale changes invalidate the caches so labels refresh even when mana is unchanged. Polling runs independently of character existence, including respawn waits.
-- `OnSelectionRejected` calls `ShowManaNotEnough`. The message uses `UI_table.mana_not_enough` and expires after two unscaled seconds by default; repeated rejections restart the deadline. An active message also refreshes on locale change.
-- `ClearLocalUI` empties all three texts, invalidates the caches and cancels the message deadline. Locale subscriptions follow `OnEnable`/`OnDisable`.
-- `PlayerUIPrefab` contains three added TMP texts using the existing MPLUSRounded1c font, with serialized field and localization references. `label_mana_capacity`, `label_mana_opponent` and `mana_not_enough` are present in English, Russian and Japanese. Optional local click feedback was not added.
+### 3.5 PlayerActionPhase [Confirmed]
 
-### 3.1 PlayerActionPhase (`GameLoop.cs:91`) [Confirmed]
-Each frame, until timeout or `m_activePlayerConfirmedAction` with an empty queue:
-1. Check finish, then death, then finish again after `HandleDeathPausingCurrentPhase`. A respawn restores the saved phase, elapsed timer and active player (N18/M1).
-2. It drains `m_cardInputQueue`. For each package it:
-   - re-checks the card exists, the card owner is the active player, the card is in `m_boardPlayCards`, and the data and activities are non-null
-   - checks the target count ≥ number of activities, which is always 4
-   - for each activity: a zero target is allowed only for `None/All*/Random*`, then `CheckActivity`
-   - on success, runs `ProcessActivity` for each activity. After each one it uses the same finish/death/finish sequence. A decisive death breaks the activity loop; end-of-action cleanup remains reachable.
-   - runs `MoveCardOnGraveyard`, clears the resolving flag, then N6 checks finish before yielding or processing another package. Remaining packages stay queued until EndMatch clears them; their effects do not run.
-3. At phase end it calls `ClearDiscardedCards(player)` and `ClearPlayedCards(player)`, which send all board cards to the graveyard.
+Each frame, until the timeout or until the active player has confirmed with an empty queue:
+1. Finish, death, finish (as above).
+2. Drain `m_cardInputQueue`. For each package:
+   - Re-check that the card exists, belongs to the active player, is in `m_boardPlayCards`, and has data and activities. A card without data or activities goes to the graveyard.
+   - Set `m_isResolvingCards`. The target list must have at least one slot per activity (always 4).
+   - For each activity: a zero target is allowed only when `CardTargetRules.RequiresSelectedTarget` is false; otherwise `CheckActivity`. Any failure drops the package and clears the flag.
+   - Run `ProcessActivity` for each activity, with the finish / death / finish check after each one. A deciding death stops the remaining activities.
+   - `MoveCardOnGraveyard`, clear the flag, then check finish before yielding (N6). Packages left in the queue are cleared by `EndMatch`; their effects don't run.
+3. At the end: `ClearDiscardedCards(player)` and `ClearPlayedCards(player)` send that player's board cards to the graveyard.
 
-### 3.2 Death pause and respawn (N18/M1, 2026-10-19) [Confirmed]
+### 3.6 Death pause and respawn (N18/M1) [Confirmed]
 
-- RoundBreak, drawing, CardSelection and PlayerAction check finish before death handling, then finish again after it. The outer GameLoop also checks finish after RoundBreak, drawing and CardSelection, reaching its existing winner/EndMatch path without starting the next phase.
-- `HandleDeathPausingCurrentPhase` clears the external death flag, finds a dead player with remaining lives and checks `GetRespawnPoints` before entering a pause. No lives means no wait; no valid blocks means life becomes -1 and no wait.
-- A possible respawn saves the current phase, elapsed timer and active-player reference, then yields the existing `WaitForRespawnIfNeeded`. It restores all three only if the match can continue. Mana growth, draws already made, accepted selections and MANA2 reset counters are not initialized again.
-- Drawing uses an interruptible, scaled per-frame delay instead of one `WaitForSeconds`, checking death/finish inside the delay as well as before each draw. The partially completed delay remains local to the suspended iterator, so respawn time does not consume it. The configured delay and the existing elapsed-timer increment per completed draw are retained. Drawing still inherits its existing phase value (normally RoundBreak); no phase enum/order change was made.
-- The respawn routine below, respawn-condition lookup and character-spawn implementation are unchanged. H6 still stops the outer guarded coroutine during a pause.
+- `HandleDeathPausingCurrentPhase` clears `m_externalDeathDetected` and finds the first dead player (`GetCharacter() == null`, `TeamId != -1`, lives > 0).
+  - No blocks left (`GetRespawnPoints` empty): `m_lifeCurrent = -1`, no pause. The player is out.
+  - Otherwise it saves the phase, `m_phaseElapsed`, `m_phaseDuration` and `m_activePlayer`, then runs `WaitForRespawnIfNeeded`. If the match goes on, it restores all of them and restarts the countdown with the remaining time.
+- `WaitForRespawnIfNeeded`:
+  - Sets `RespawnWait`, `m_isWaitingRespawn` and `m_waitingRespawnPlayer`, and starts a `m_respawnWaitTime` (30 s) countdown.
+  - Waits for `HandlePlayerRespawnPoint` (the waiting player confirms one of their own spawned blocks with a spawn point).
+  - Uses the chosen block's `SpawnPoint` if it's still valid, otherwise a random valid own block. None left: life = −1.
+  - `RespawnCharacter` (2.5 units above the point), then the phase becomes `ResolveCards` until the pause helper restores the saved phase.
+- Drawing waits in an interruptible per-frame delay, so a death during the delay is noticed on the next frame, and the pause doesn't eat the delay.
+- Mana growth, draws already made, accepted selections and timer-reset counters are not repeated after a pause.
 
-Existing `WaitForRespawnIfNeeded` behavior:
-- A player is dead when `GetCharacter() == null` and `TeamId != -1`.
-- `FindDeadPlayer` picks the first dead player that still has lives.
-- It sets `phase = RespawnWait` and `m_waitingRespawnPlayer`, then waits up to `m_respawnWaitTime` (30 s) for `m_respawnConfirmed`.
-- If the chosen block is still valid it uses its child `SpawnPoint`. Otherwise it picks a random valid own block.
-- With no valid blocks, it sets `m_lifeCurrent = -1`, which permanently eliminates the player.
-- Then `RespawnCharacter` spawns a new character, and the phase becomes `ResolveCards` until the pause helper restores the original phase. A finished match skips restoration.
+### 3.7 Death, finish and the win rule [Confirmed]
 
-### 3.3 Death and finish conditions [Confirmed]
-- **HP ≤ 0** (`UpdatePlayerHP`): M6 (2026-10-20) logs and returns if the controller has no session. Otherwise the existing order is retained: decrement life, `DespawnCharacter`, free the spawn point when present, clear character and `CharacterObjectId`. The guarded spawn-point fallback remains even when despawning returns early.
-- **Lava** (`LavaKillZone.TryKillPlayer`, server): `ServerKillPlayerByHazard` sets HP to 0, then runs `UpdatePlayerHP` and sets `m_externalDeathDetected`. M3 (2026-10-20) tracks killed `PlayerController` instances instead of recycled network IDs, removing Unity-destroyed entries before checking membership. A new pony instance can therefore die even with the same ID; existing authority, spawned/current-character/session checks remain.
-- **Block HP ≤ 0** (`UpdateBlockHp`): `PlayerSession.DeleteBlock`, then `Despawn`. A character standing on it is expected to fall into the lava. That is physics, **[Unknown]** at runtime.
-- **Game finished** (`IsGameFinished`): at most one non-null player with `TeamId != -1` has a character or lives > 0. L3 makes this a single allocation-free, side-effect-free count and removes FindLostPlayer/dead lost-player fields. FindDeadPlayer also uses one ordered loop; IsAnyPlayerDead skips null entries. The real external-death signal in Processing remains.
-- **[Unfinished]** README's "destroy all enemy blocks" win rule is not implemented directly. Losing all blocks only matters at the next respawn, when no spawn point exists and the life is set to −1.
+- **HP ≤ 0** (`UpdatePlayerHP`): lose one life, `DespawnCharacter`, free the spawn point, clear the character reference and `CharacterObjectId`. A character without a session logs an error and returns (M6).
+- **Lava** (`LavaKillZone`, server only): `ServerKillPlayerByHazard` sets HP to 0, runs `UpdatePlayerHP` and sets `m_externalDeathDetected`. Already-killed characters are tracked by instance (a `HashSet<PlayerController>`, destroyed entries pruned), not by network ID (M3).
+- **Block HP ≤ 0** (`UpdateBlockHp`): `PlayerSession.DeleteBlock`, then `Despawn`. A character standing on it should fall into the lava (physics, **[Unknown]**).
+- **Finished** (`IsGameFinished`): at most one player (non-null, `TeamId != -1`) still has a character or lives > 0. One allocation-free loop with no side effects (L3).
+- **How a player loses:**
+  - by losing all 3 lives (cards or lava)
+  - by dying with no block left to respawn on (life = −1)
+  - by pressing Leave match, or by disconnecting during a match (§3.8)
+- Destroying all blocks doesn't end the match by itself. It counts at the player's next death. **[Unfinished]** as a direct rule.
+- If both players are out at once, `winner` is null and the result is a draw.
 
-### 3.4 Unused or unreached phases
-- `GamePhase.DrawCards` is never assigned. **[Confirmed]**
-- `GamePhase.RoundEnd` is never assigned. **[Confirmed]**
-- `GamePhase.ResolveCards` is only set as a transient value at the end of `WaitForRespawnIfNeeded`, and inside `ResolvePlayerCardsPhase`, which is never called (`//ToDo`). **[Unfinished]**
-- `GameAnnouncerUI` and the localization tables do have keys for all 8 phases.
+### 3.8 Match end, abort and the guarded runner
 
-### 3.5 Timer
-- `m_timer` is a server-written `NetworkVariable<float>`, incremented by `Time.deltaTime` every frame in each phase and reset at the start of each phase and each respawn wait.
-- N18/M1 saves the suspended phase timer before respawning and restores it afterward, along with the phase and active player. The respawn timer remains the existing shared timer while the phase is RespawnWait.
-- Clients show `(int)m_timer` as **elapsed** time, not remaining (`GameAnnouncerUI`). **[Confirmed]**
+- **`RunGuarded`** runs the loop and its nested iterators on a stack. An exception in any of them is logged, then `AbortMatch("loop_exception")`. It yields only `null` and nested phases (the N12 "spin" report was a false positive).
+- **`EndMatch(winner, reason)`** (server, once per match):
+  - clears the countdown; sets `GameOver`; clears the active and respawning player and both input queues
+  - in debug mode, logs each player's suspicious-activity summary
+  - `MatchEndedClientRpc(winnerClientId, reason)`. Every peer stores win / lose / draw in `MatchResultData` and calls `LeaveMatchToResultScene`.
+- **`LeaveMatchToResultScene`:**
+  - The host waits up to `m_resultLeaveTimeout` (3 s) for the client to disconnect first.
+  - The host deletes the lobby; the client removes itself from it.
+  - Then `ClearupAfterDisconnect`, `Shutdown`, a wait while `ShutdownInProgress`, and `ClearSessionOnDisconnect`. It loads `ResultScene`.
+  - Disconnect callbacks are ignored while this runs (`m_isLeavingToResult`).
+- **Reasons** (`MatchEndReason`):
+  - `LivesDepleted` (normal end)
+  - `OpponentDisconnected`: `SessionManager.OnClientDisconnected` → `GameMaster.HandlePlayerLeft`. The leaver is removed from `m_players`.
+  - `Surrendered`: `HandlePlayerSurrender`. The leaver stays in `m_players`.
+  - Both handlers work only while the loop runs and the phase isn't `None` or `GameOver`. Each stops the loop and picks the other valid player. If there is none: `AbortMatch("player_left_no_winner")` or `AbortMatch("player_surrendered_no_winner")`.
+- **N17:** `SessionManager.OnClientDisconnected` clears the HUD only when the local client itself disconnected. A host watching the opponent forfeit keeps its HUD until `ResultScene`.
+- **`AbortMatch(reason)`** (server, once): clears the countdown, sets `None`, logs an error, and calls `MultiplayerManager.Disconnect`. That deletes the lobby (host), shuts down and returns to `LobbyScene`. No result is shown.
+- `ResultMenuUI` picks the title and reason text:
+  - `LivesDepleted`: `result_reason_youLostLives` / `opponentLostLives` / `bothLostLives`
+  - `OpponentDisconnected`: `result_reason_opponentLeft`
+  - `Surrendered`: `result_reason_youLeft` for the leaver, `result_reason_opponentLeft` otherwise
+
+### 3.9 Unused or transient phases
+
+- `DrawCards` and `RoundEnd` are never assigned. **[Confirmed]**
+- `ResolveCards` is only a short transient value at the end of `WaitForRespawnIfNeeded`. **[Confirmed]**
+- `GameAnnouncerUI` and `UI_table` have keys for all 9 phases (`Phase.*`).
 
 ---
 
@@ -206,74 +204,103 @@ Existing `WaitForRespawnIfNeeded` behavior:
 
 | Action | Client side | RPC | Server handler | Validation |
 |---|---|---|---|---|
-| Move (WASD) | `PlayerController.Update` → `SendMovementInput`. Requires `CanPlayerMove` **on the client** | `PlayerController.InputServerRpc(PlayerControlPackage)` (owner-only) | `GameMaster.HandlePlayerControlPackage` (enqueue, `IsServer` per M4) → server `Update` → `InputQueueUpdate` → `MoveInputProcessing` + `HPDeltaProcessing` | Direction must be one axis step. **No phase check, and the target client comes from payload `ClientId`.** [Risk] |
-| Debug damage (Space) | `SendMovementInput` sets `s_hpDelta = -10` | same | `HPDeltaProcessing` applies any delta | **None.** [Risk] |
-| Select cards to play/discard | `PlayerUI.OnCardClicked` (LMB) / `OnCardAlterClicked` (RMB) → `PlayerSession.SelectCardToPlay/Discard` (local lists) | — | — | Local only |
-| Confirm selection | `PlayerUI.ConfirmTurn` → `PlayerSession.ConfirmTurn` | `PlayerSession.ConfirmTurnServerRpc(intendedPhase, play[], discard[], respawnBlock)` | `HandleConfirmTurn` checks sender and N21 phase family, then CardSelection uses `HandleConfirmSelectionTurn` and writes only its accepted cards to the board | Existing MANA2 ownership, hand, duplicate, mana and first-confirm checks remain. Late phase mismatches are ignored without suspicion. |
-| Target a played card | World click → `PlayerSession.SelectObject` (raycast) → `ConfirmTargetButtonUI.ConfirmSelect` → `PlayerSession.TryConfirmTarget` (fills `m_currentCardControllPackage`) | — | — | Local |
-| Cast card | `ConfirmSendButtonUI1.TryConfirmSend` → `PlayerSession.TryHandlePackage` → `CheckPackage` | `PlayerSession.CardInputServerRpc(CardControllPackage)` | `HandleCardControlPackage` (enqueue) → consumed by `PlayerActionPhase` | Phase, active player, card owner, card on board. Then target checks in the loop. |
-| End turn | `PlayerUI.ConfirmTurn` during `PlayerAction` | `ConfirmTurnServerRpc` | `HandlePlayerActionConfirm` sets `m_activePlayerConfirmedAction` | Must be the active player |
-| Respawn block | `ConfirmTargetButtonUI` during `RespawnWait` → `TryConfirmRespawnBlock`, then `ConfirmTurn` | `ConfirmTurnServerRpc(…, blockId)` | `HandlePlayerRespawnPoint` | Must be the waiting player, own block, spawned, with a spawn point |
-| Card identity | — | `GameMaster.SendCardDataClientRpc(cardId)`: on draw it goes to the owner only, and on board placement it goes to all clients | `NetworkCard.RepairCardData` → `CardDatabase.TryGetCard`; then world refresh and `PlayerUI.OnCardDataReceived` (M14) | Missing prerequisites or unknown IDs warn and retain the previous card data |
+| Move (W/A/S/D) | `PlayerController.Update` (owner) → `SendMovementInput`, only if `CanPlayerMove` | `InputServerRpc(PlayerControlPackage)` (owner only) | Checks the sender is the owner, overwrites `ClientId` with the sender, `HandlePlayerControlPackage` (enqueue) → `GameMaster.Update` → `InputQueueUpdate` → `MoveInputProcessing` | Client still connected; its session's `CanPlayerMove` (PlayerAction, active player, no input lock); the character's owner; one axis step of `m_stepMoveDistance` (3) |
+| Debug damage (Space) | `SendMovementInput` sets `s_hpDelta = -10`. Compiled only in the Editor and development builds. | same | `HPDeltaProcessing`, only in the Editor or development builds with `m_debugMode` on | Debug only |
+| Select cards | `PlayerUI.OnCardClicked` (LMB) / `OnCardAlterClicked` (RMB) → `PlayerSession.SelectCardToPlay` / `SelectCardToDiscard` | — | — | Local: phase, input lock, card data, mana |
+| Confirm selection | `PlayerUI.ConfirmTurn` → `PlayerSession.ConfirmTurn` | `ConfirmTurnServerRpc(intendedPhase, play[], discard[], respawnBlock)` | `HandleConfirmTurn` → `HandleConfirmSelectionTurn` (§3.4) | Sender owns the session; the phase matches (below) |
+| Target a played card | World click → `PlayerSession.SelectObject` (raycast) → `ConfirmTargetButtonUI.ConfirmSelect` → `TryConfirmTarget` (fills `m_currentCardControllPackage`) | — | — | Local; `AutoSelectTarget` fills self/opponent-only cards |
+| Cast a card | `ConfirmSendButtonUI1.TryConfirmSend` → `PlayerSession.TryHandlePackage` → `CheckPackage` | `CardInputServerRpc(CardControllPackage)` | `HandleCardControlPackage` (enqueue) → `PlayerActionPhase` | PlayerAction, sender is the active player, card owner (`ForeignCardPackage` recorded), card on the board; then §3.5 |
+| End turn | `PlayerUI.ConfirmTurn` during PlayerAction | `ConfirmTurnServerRpc` | `HandlePlayerActionConfirm` sets `m_activePlayerConfirmedAction` | Must be the active player |
+| Respawn block | `ConfirmTargetButtonUI` during RespawnWait → `TryConfirmRespawnBlock`, then `ConfirmTurn` | `ConfirmTurnServerRpc(…, blockId)` | `HandlePlayerRespawnPoint` | The waiting player; own, spawned block with a spawn point |
+| Leave match | `LeaveMatchUI.OnClickConfirmLeave` → `PlayerSession.RequestLeaveMatch` | `LeaveMatchServerRpc` (owner only) | `HandlePlayerSurrender` | Sender owns the session (`RpcSenderMismatch` recorded otherwise) |
+| Card identity | — | `GameMaster.SendCardDataClientRpc(cardId)`: to the owner on a draw, to everyone on board placement | `NetworkCard.RepairCardData` → `CardDatabase.TryGetCard`; then `CardWorldViewManager.RefreshAllSessions` and `PlayerUI.OnCardDataReceived` | Unknown IDs warn and keep the old data (M14) |
+| Hand-limit / rejection notices | — | `HandLimitDiscardClientRpc`, `SelectionRejectedClientRpc` (owner only) | — | — |
+| Match result | — | `MatchEndedClientRpc(winnerClientId, reason)` | every peer → `LeaveMatchToResultScene` | — |
 
-Notes:
-- `ToPlayerControlPackage` / `SendToClientRpc` are an echo with an empty body (debug).
-- `PlayerController.ReceiveValidatedInput` and its queue are never used. **[Unfinished]**
-- **[Unknown]** `HandlePlayerActionConfirm` compares `PlayerSession != NetworkBehaviourReference` through an implicit conversion. Equality semantics need a runtime check.
+**Phase-tagged confirm (N21).** `ConfirmTurn` reads the phase once and sends it as `intendedPhase`. `IsConfirmForCurrentPhase` accepts only:
+- CardSelection → CardSelection
+- RespawnWait → RespawnWait
+- PlayerAction or ResolveCards → PlayerAction or ResolveCards
 
-### Safe card confirmation and Send (N20, M14, M8; 2026-10-19)
+A mismatch is logged in debug mode and ignored, with no suspicion and no mana feedback.
 
-N21/N26/N3 (2026-10-20): ConfirmTurn snapshots the intended GamePhase once and sends it through the owner RPC. After existing sender validation, the server accepts only CardSelection→CardSelection, RespawnWait→RespawnWait, or PlayerAction/ResolveCards within that action family. A mismatch is debug-logged and ignored without suspicion or mana feedback. Every new CardSelectionPhase increments m_selectionPhaseId; PlayerUI clears its local play/discard lists on that counter event, and unsubscribes on cleanup/destroy. Respawn restoration does not increment the counter, preserving same-phase selections. Movement, target and card-selection gates use the server's live resolving/respawn flags or the client's replicated m_isInputLocked. The server mirrors that lock in Update and resets it on spawned-server cleanup/new game. These paths passed isolated source scenarios; live replication/timing remains manual.
+**Input lock (N3).** `IsInputLocked()` uses the server's own flags (`m_isResolvingCards || m_isWaitingRespawn`) on the server. Clients use the NetworkVariable `m_isInputLocked`, which `GameMaster.Update` mirrors on change. It resets on new game and cleanup. `CanPlayerMove`, `CanPlayerSelectCardTargets` and `CanPlayerSelectCards` all check it.
 
-- `CardTargetRules.RequiresSelectedTarget` is shared by client package validation and the server's zero-target check. Its eight optional-target cases are identical to the former server switch; an optional zero target still skips `CheckActivity`. Other target validation, resolution and authority remain unchanged.
-- `PlayerSession.ClearSelectedCard` clears a nonempty confirmed package too. Repeated clearing of an empty package retains its target list. Send requires a nonzero confirmed card ID matching the currently selected card, available card data/activities, enough target slots and a nonzero target for each required activity. A missing GameMaster returns safely. The existing phase permission and successful-send reset remain.
-- Deselecting or entering RespawnWait drops the action card/package. After resuming, select and confirm again. Respawn confirmation continues using its separate block ID and bypasses card-data checks.
-- M14 guards missing data in confirmation, automatic targeting and active-target detection. Automatic targeting writes only up to the smaller activity/target-list count. Card clicks retain both click events while logging a safe placeholder when data is unavailable.
-- M8 resolves an AnyPlayer target through a block by matching replicated `m_teamId` to the local/opponent session's `TeamId`. It does not read the server-only block owner reference. A character whose session has not arrived, or a block with no known team owner, warns and returns false. Server target checks are unchanged.
+**Send safety (N20, M14, M8):**
+- `PlayerSession.ClearSelectedCard` also clears a confirmed package.
+- Send needs a confirmed card that matches the selected card, card data, enough target slots, and a target for each activity that requires one.
+- Deselecting a card, or entering RespawnWait, drops the package: after a respawn, select and confirm again.
+- An `AnyPlayer` target picked through a block resolves its owner by matching the replicated `BlockController.m_teamId` to the local or opponent `TeamId` (`GetBlockOwnerSession`).
 
 ---
 
-## 5. Client state display (per frame or per event)
+## 5. Client state display
 
-- `PlayerUI.Update` lazily binds to `SessionManager.LocalPlayer`, subscribes to the three NetworkLists and `m_gamePhase`, and writes the HP and life labels every frame.
-- `PlayerUI.UpdateCards` destroys and rebuilds every `CardViewUI` on each list or phase change.
-- M14 also calls `PlayerUI.OnCardDataReceived` after the existing card-data RPC repair/world refresh. It rebuilds only when a local hand/played-board card has no view, covering data arriving after the list delta. Existing views and unrelated/opponent cards do not trigger a rebuild. The current phase still decides which cards are displayed; N18 selection-highlight restoration and selected-card validation are retained.
-- N18/M1: `CreateCardView` restores play/discard colors only in CardSelection, using `PlayerSession.IsCardSelectedToPlay` / `IsCardSelectedToDiscard`. The local lists survive the pause; they remain the source for the eventual confirm package. RespawnWait continues to hide the hand.
-- `CardWorldViewManager` rebuilds the board view layout on every board-list change and every `NetworkCard` location, rotation or face change (`RefreshAllSessions`).
-- `GameAnnouncerUI.Update` builds the phase, timer and active-player text every frame through new `LocalizedString` instances.
-
-### Voluntary surrender (N19, 2026-10-19)
-
-- `PlayerUIPrefab/LeaveMatch` provides a localized Leave match button and an initially inactive confirmation panel. Cancel only closes the panel. The new rect follows the existing root canvas dimensions because the prefab's existing root rect is only 100 by 100; existing HUD layout is retained. The full-viewport background Image has raycast targeting enabled, using the existing canvas and EventSystem.
-- During a running phase, confirmation calls the local owner's `PlayerSession.RequestLeaveMatch` and its owner-only `LeaveMatchServerRpc`. The RPC additionally checks the sender against `OwnerClientId`, reporting mismatches on the sender's session. Only the server's `HandlePlayerSurrender` decides the winner.
-- The surrender handler uses the H6 running-match guards, stops the guarded game coroutine, clears resolution/respawn flags and selects the other valid team. It retains the leaver in `m_players` and calls the unchanged `EndMatch` with the appended `MatchEndReason.Surrendered`. No eligible opponent uses `AbortMatch("player_surrendered_no_winner")`. H6 disconnect handling is unchanged.
-- The existing H5 RPC/result transition delivers both peers to ResultScene: the leaver sees defeat and `result_reason_youLeft`; the winner uses the existing opponent-left reason. A draw uses the opponent-left reason defensively. Confirmation during phase None or without a local session uses the ordinary disconnect path. An unanswered request falls back to disconnect after five unscaled seconds; GameOver closes the dialog, disables the button and cancels that deadline.
-- Five new UI_table keys are available in en/ru/ja. Editor previews verified localized dialog and defeat-result rendering, plus actual Leave/Cancel button input. Real host/client delivery, simultaneous peer races and card/world click blocking still require the N19 manual checks; isolated source checks do not establish transport behavior.
+- **`PlayerUI.Update`** binds to `SessionManager.LocalPlayer` lazily.
+  - It subscribes to the three card lists, `m_gamePhase` and `m_selectionPhaseId`, and unsubscribes in `ClearLocalUI` and `OnDestroy`. It clears the HUD once when the local player goes away (L6).
+  - Each frame it writes HP and lives (or the "dead" text when lives < 0). The mana labels are formatted only when a value or the locale changes.
+- **`PlayerUI.UpdateCards`** rebuilds every `CardViewUI` on each list or phase change:
+  - None / RoundBreak / CardSelection show the hand.
+  - PlayerAction / ResolveCards show `m_boardPlayCards`.
+  - RespawnWait and GameOver show nothing.
+  - In CardSelection, `CreateCardView` restores the play/discard colours from the local lists.
+  - `OnCardDataReceived` rebuilds only when a local hand or board card has no view yet.
+  - UI3 deactivates old views before deferred `Destroy`, then adjusts the cached HorizontalLayoutGroup spacing to keep the rendered hand centered within its 1800-unit container (card width 200, maximum authored spacing 220). The hand center stays 300 reference units above the bottom. Clearing the local UI restores the spacing.
+- **`PlayerUI` messages** (`mana_not_enough`, `hand_limit_discard`) last 2 unscaled seconds and refresh on a locale change.
+- **`CardWorldViewManager`** lays out `CardViewWorld` instances for every session's board.
+  - It rebuilds on every board-list change and every `NetworkCard` location, rotation or face change.
+  - In `Update` it drops sessions that left, were despawned or were destroyed, and registers new ones when the count changes (L6).
+- **`GameAnnouncerUI.Update`** shows the localized phase, the countdown and whose turn or respawn it is (red/blue by team).
+  - It keeps the last phase, seconds, target, team, local-player flag and locale, and does nothing when none changed (L6).
+  - It reuses one `LocalizedString` per key.
+  - UI1 gives it an unscaled 1560×150 centered box and scene font limits 24–48, preserving two lines, NoWrap and Ellipsis. en/ru turn/respawn prefixes include a separator; any remaining truncation warns once per distinct text.
+- **Card views** (`CardViewUI`, `CardViewWorld`) re-read the name and description on `SelectedLocaleChanged`, through `CardViewBase` (L7).
+- **`LeaveMatchUI`**:
+  - UI3 stretches its rect with the HUD root; the former canvas-size polling workaround is removed.
+  - Its button is disabled at GameOver.
+  - Confirming during phase None, or without a local session, disconnects directly.
+  - If no result arrives within `m_leaveFallbackTimeout` (5 s), it disconnects.
+- **`CardPreviewController`** (UI4) retains assigned references, otherwise selects PlayerUI's root canvas or a root screen-space fallback. A missing canvas disables previews with a warning. Layout is rebuilt before the measured preview rect/pivot/scale is clamped to canvas-local bounds; an oversized axis is centered.
 
 ---
 
 ## 6. Known risks in the loop
 
-These are documented, not fixed. Each needs separate verification.
-
 | # | Risk | Location | Consequence |
 |---|---|---|---|
-| L1 | Any exception inside the coroutine stops `GameLoop` permanently | the coroutine as a whole | Match freezes with no recovery |
-| L2 | Resolved by H2 (2026-10-19): empty decks refill once per draw after graveyard deletion; empty filtered pools warn and return | `GameMaster.Card.cs` | Default refill excludes UltraRare/Unique; initial deck and section/copy rules are unchanged. |
-| L3 | Resolved by H3 (2026-10-19): block heal uses its server-only `GetMaxHP()` and the character overflow formula/conversion | `Processing.cs`, `BlockController.cs` | No character reference or hard-coded maximum remains in the block heal branch. |
-| L4 | `CheckActivity` dereferences `_ownerPlayer` before its null check | `Processing.cs:69` | NRE leads to L1 |
-| L5 | `FillCardSection` writes `_nonUniqueList[i]` on a possibly empty list for `UltraRare` | `Card.cs:262` | `StartNewGame` throws once an UltraRare card exists. No current card is UltraRare. |
-| L6 | Resolved by N18/M1: the pause helper saves and restores the phase timer and active player | `GameMaster.GameLoop.cs` | Respawn time no longer consumes/resets action-turn time. |
-| L7 | Resolved by N6 (2026-10-20): finish is checked after disposing the deciding card and clearing the resolving flag | `PlayerActionPhase` | Later queued effects do not run; normal phase cleanup and EndMatch queue clearing remain. |
-| L8 | Historical audit entry: result delivery was implemented by H5; L3 now removes the unused lost-player fields and FindLostPlayer | `GameLoop`, `EndMatch`, `MatchEndedClientRpc` | EndMatch retains the existing LivesDepleted result flow; live regression remains manual. |
-| L9 | An opponent disconnect is not handled by `GameMaster`. Destroyed sessions stay in `m_players` | `MultiplayerManager.OnClientDisconnected`, `SessionManager.OnClientDisconnected` | Undefined end state. See [Dependencies.md](Dependencies.md#5-regression-points). |
-| L10 | Resolved by L3 (2026-10-20): finish/dead-player lookups use single loops and FindLostPlayer is removed | `GameMaster.GameLoop.cs` | Finish checks no longer allocate a list or raise external-death state. |
-| L11 | Resolved by M15 (2026-10-20): successful draws enforce the configured uncommitted-hand limit, default 10, discarding oldest excess cards | `GameMaster.Card.cs` | Committed cards are excluded; zero/negative disables the rule. N26 clears unconfirmed selections on a new selection phase while preserving same-phase pauses. |
-| L12 | Resolved by M3 (2026-10-20): lava uses an instance set and prunes Unity-destroyed entries | `LavaKillZone.cs` | Network ID reuse no longer suppresses a different pony instance; actual physics/recycled-ID Play Mode verification remains |
+| GL1 | `ProcessActivity` calls `GetSessionByID(cardOwnerId).GetCharacter()` without a null check, and never uses the result (N32) | `GameMaster.Processing.cs`, `ProcessActivity` | Latent: `CheckActivity` has just checked the owner, and a disconnect stops the loop before the session despawns. If it ever happened, `RunGuarded` would abort the match (`loop_exception`); no freeze. |
+| GL2 | One RPC means "confirm selection", "end turn" or "confirm respawn". N21 drops stale confirms, but a confirm sent just before a phase change is lost. | `HandleConfirmTurn` | The player has to press again (the owner chose "ignore", 2026-10-20) |
+| GL3 | `HandlePlayerActionConfirm` compares `PlayerSession` with a `NetworkBehaviourReference` through an implicit conversion | `GameMaster.PackageManaging.cs` | **[Unknown]**: equality semantics not checked at runtime |
+| GL4 | Falling after a block is destroyed depends on physics and the lava trigger geometry | `UpdateBlockHp`, `LavaKillZone` | **[Unknown]**: a player could stand on nothing |
+| GL5 | The 4-slot target list and `CardData.OnValidate` (always 4 activities) are coupled to the server's "slots ≥ activities" check | `CardControllPackage.CreateEmpty`, `CardData.OnValidate`, `PlayerActionPhase` | Changing the activity count changes validation |
 
 ## 7. Unknown, needs Play Mode
 
-- Whether `NetworkBehaviourReference` assigned `null` (`m_activePlayer.Value = null`, `GameAnnouncerUI.GetTargetSession`) is accepted by NGO 2.11 or throws.
-- Physics of falling after a block despawns, and the lava trigger geometry in `GameScene`.
-- Timing between `SendCardDataClientRpc` and the client-side spawn of the card object (the warning path "NetworkCard … was not found").
-- **Resolved during the audit:** `GameMasterPrefab.prefab` does not serialize any of the Timing, Movement or GameRules fields. Only `m_debugMode: 1` and the five prefab/database references are stored. The C# defaults documented above are therefore the effective values until the prefab is re-saved. **[Confirmed]** `m_debugMode` is enabled on the prefab, so verbose server logging is on.
+- Physics of falling after a block despawns, and the lava trigger (GL4).
+- Timing between `SendCardDataClientRpc` and the client-side spawn of the card ("NetworkCard … was not found" warning path).
+- The tasks L1–N28 in the working tree: countdown agreement between peers (±1 s), respawn resume, per-frame cost, and locale switching of card texts. These are the open manual checks in the [implementation report](../Reports/2026-10-20_L1_L2_N31_N30_N17_L6_L7_L9_L10_N28_Implementation.md#6-manual-unity-editor-verification-steps).
+- `GameMasterPrefab.prefab` stores none of the Timing, Movement or GameRules fields, so the C# defaults above are the real values. It stores `m_debugMode: 1`; in release builds that flag is forced off (L9). **[Confirmed]**
+
+---
+
+## History
+
+Items from earlier versions of this document that are now resolved:
+
+- **Result flow:** "End of match → Result: not implemented" was resolved by H5 (`EndMatch`, `MatchEndedClientRpc`, `ResultScene`). Forfeit on disconnect was resolved by H6, and the Leave match button by N19.
+- **Loop exceptions** used to stop `GameLoop` for good. H1 added `RunGuarded`, which aborts the match instead.
+- **Deck exhaustion** threw an exception; H2 added the refill.
+- **Block heal** used the character's maximum HP; H3 fixed it with `GetMaxHP`.
+- **`CheckActivity`** dereferenced the card owner before its null check. It's now checked first.
+- **`FillCardSection`** indexed an empty list for UltraRare cards. UltraRare and Unique cards are no longer added to the repeat list.
+- **Respawn and the timer:** a respawn reset the action timer. N18/M1 now saves and restores the phase, timer and active player; L1 keeps the countdown.
+- **Queued cards after the deciding hit** kept resolving. N6 checks finish after each card.
+- **Lost-player bookkeeping:** `FindLostPlayer` and `m_isLocalPlayerLost` are removed (L3).
+- **Hand size** was unlimited; M15 added the hand limit.
+- **Lava kills** used a recycled-ID cache; M3 now tracks instances.
+- **Removed by L10:** `ResolvePlayerCardsPhase`, the movement echo (`SendToClientRpc`, `ToPlayerControlPackage`), `PlayerController.ReceiveValidatedInput`, `SpawnPanelUI`, `DisconnectMenuUI` and the Tab toggle in `MultiplayerManager`.
+- **Movement** had no phase check and trusted the payload's `ClientId` and HP delta:
+  - C3: the server now checks `CanPlayerMove`.
+  - C2: the RPC overwrites `ClientId` with the sender.
+  - C1: the debug damage key exists only in Editor and development builds.
+- **Card selection** trusted the client's card IDs. C4 and MANA2 now validate the IDs, ownership and mana.

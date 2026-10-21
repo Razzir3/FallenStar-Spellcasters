@@ -1,5 +1,4 @@
 using Unity.Netcode;
-using Unity.VisualScripting;
 using UnityEngine;
 
 public partial class GameMaster
@@ -9,29 +8,8 @@ public partial class GameMaster
         while (m_inputQueue.Count > 0)
         {
             PlayerControlPackage _package = m_inputQueue.Dequeue();
-            //Package is valid, we can process it and send the result back to the client
-            ToPlayerControlPackage _packageNew = new ToPlayerControlPackage
-            {
-                RequestId = _package.RequestId,
-                ClientId = _package.ClientId,
-                s_horizontal = _package.s_horizontal,
-                s_vertical = _package.s_vertical,
-                s_enabled = true
-            };
             if (m_debugMode) Debug.Log("Handle Packege in Update");
 
-            //We create the ClientRpcParams to specify which client should receive the result of the processed package
-            ClientRpcParams _rpcParams = new ClientRpcParams
-            {
-                Send = new ClientRpcSendParams
-                {
-                    TargetClientIds = new ulong[]
-                                    {
-                                        _package.ClientId
-                                    }
-                }
-
-            };
             //Only process movement for connected clients.
             if (!NetworkManager.Singleton.ConnectedClients.ContainsKey(_package.ClientId))
             {
@@ -81,12 +59,7 @@ public partial class GameMaster
             }
 #endif
 
-            //Send Package back to the client to confirm that the input was processed and to update the client's state if necessary
-            if (!NetworkManager.Singleton.ConnectedClients.ContainsKey(_package.ClientId))
-            {
-                continue;
-            }
-            SendToClientRpc(_packageNew, _rpcParams);
+
         }
     }
 
@@ -205,7 +178,7 @@ public partial class GameMaster
                         else
                         {
                             double _shieldDelta = (activity.s_value - _targetCharacter.m_hpMax.Value + _targetCharacter.m_hpCurrent.Value) * 0.5;
-                            _targetCharacter.m_hpCurrent.Value = _targetCharacter.m_hpMax.Value + (_shieldDelta).ConvertTo<int>();
+                            _targetCharacter.m_hpCurrent.Value = _targetCharacter.m_hpMax.Value + System.Convert.ToInt32(_shieldDelta);
                         }
                         UpdatePlayerHP(_targetCharacter);
                     }
@@ -222,7 +195,7 @@ public partial class GameMaster
                         else
                         {
                             double _shieldDelta = (activity.s_value - _blockMaxHp + _targetBlock.m_blockHP.Value) * 0.5;
-                            _targetBlock.m_blockHP.Value = _blockMaxHp + (_shieldDelta).ConvertTo<int>();
+                            _targetBlock.m_blockHP.Value = _blockMaxHp + System.Convert.ToInt32(_shieldDelta);
                         }
                         UpdateBlockHp(_targetBlock);
                     }

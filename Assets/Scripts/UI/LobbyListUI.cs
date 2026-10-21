@@ -62,6 +62,7 @@ public class LobbyListUI : MonoBehaviour
     #region Unity
     private void Awake()
     {
+        m_debugMode = DebugModeGuard.Allow(m_debugMode);
         AddLocalizationVariables();
     }
 

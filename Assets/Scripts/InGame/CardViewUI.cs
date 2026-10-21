@@ -8,6 +8,11 @@ using UnityEngine.EventSystems;
 
 public class CardViewUI : CardViewBase, IPointerClickHandler
 {
+    private void Awake()
+    {
+        m_debugMode = DebugModeGuard.Allow(m_debugMode);
+    }
+
     [SerializeField] private Image m_artwork;
     [SerializeField] private Image m_frame;
     [SerializeField] private Image m_backFrame;
@@ -29,11 +34,11 @@ public class CardViewUI : CardViewBase, IPointerClickHandler
     public event Action<CardViewUI> AlterClicked;
     public override void Setup(CardData data)
     {
+        m_textData = data;
         m_artwork.sprite = data.m_artwork;
         m_frame.sprite = data.m_cardFrame;
 
-        m_name.text = LocalizationSettings.StringDatabase.GetLocalizedString("Cards", data.m_nameKey);
-        m_description.text = LocalizationSettings.StringDatabase.GetLocalizedString("Cards", data.m_descKey);
+        ApplyTexts(data);
         m_cost.text = data.m_cost.ToString();
 
         m_backFrame.sprite = data.m_cardBack;
@@ -43,6 +48,12 @@ public class CardViewUI : CardViewBase, IPointerClickHandler
     {
         m_front.SetActive(value);
         m_back.SetActive(!value);
+    }
+
+    protected override void ApplyTexts(CardData data)
+    {
+        m_name.text = LocalizationSettings.StringDatabase.GetLocalizedString("Cards", data.m_nameKey);
+        m_description.text = LocalizationSettings.StringDatabase.GetLocalizedString("Cards", data.m_descKey);
     }
 
     public override void SetRotated(bool value)

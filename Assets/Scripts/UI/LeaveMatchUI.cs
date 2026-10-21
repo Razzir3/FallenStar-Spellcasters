@@ -3,6 +3,11 @@ using UnityEngine.UI;
 
 public class LeaveMatchUI : MonoBehaviour
 {
+    private void Awake()
+    {
+        m_debugMode = DebugModeGuard.Allow(m_debugMode);
+    }
+
     [SerializeField] private Button m_leaveButton;
     [SerializeField] private GameObject m_confirmPanel;
     [SerializeField] private float m_leaveFallbackTimeout = 5f;
@@ -10,24 +15,14 @@ public class LeaveMatchUI : MonoBehaviour
 
     private bool m_isLeaving;
     private float m_leaveDeadline = -1f;
-    private RectTransform m_layoutRect;
-    private RectTransform m_canvasRect;
 
     private void Start()
     {
-        m_layoutRect = transform as RectTransform;
-        Canvas _canvas = GetComponentInParent<Canvas>();
-        if (_canvas != null)
-            m_canvasRect = _canvas.rootCanvas.transform as RectTransform;
         HideConfirmPanel();
     }
 
     private void Update()
     {
-        if (m_layoutRect != null && m_canvasRect != null && m_layoutRect != m_canvasRect &&
-            m_layoutRect.sizeDelta != m_canvasRect.rect.size)
-            m_layoutRect.sizeDelta = m_canvasRect.rect.size;
-
         bool _isGameOver = GameMaster.Instance != null &&
             GameMaster.Instance.m_gamePhase.Value == GamePhase.GameOver;
 

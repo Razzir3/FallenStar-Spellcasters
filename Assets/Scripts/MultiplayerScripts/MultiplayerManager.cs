@@ -12,7 +12,6 @@ using Unity.Services.Lobbies.Models;
 using Unity.Services.Relay;
 using Unity.Services.Relay.Models;
 using UnityEngine;
-using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 public enum MultiplayerStatus
 {
@@ -23,8 +22,19 @@ public enum MultiplayerStatus
 public class MultiplayerManager : MonoBehaviour
 
 {
+    private void Awake()
+    {
+        m_debugMode = DebugModeGuard.Allow(m_debugMode);
+    }
+
     #region Valiable
     private Lobby m_currentLobby;
+    private Task<bool> m_lobbyRefreshTask;
+    private float m_lastLobbyRefreshTime = -100f;
+    // Lobby rate limit, per player, including transitions between lobbies.
+    [SerializeField] private float m_minLobbyRefreshInterval = 1.5f;
+    private Task<bool> m_lobbyRefreshInFlightTask;
+    private float m_lastGlobalLobbyRefreshTime = -100f;
     //todo Join by lobby code is parked (M11). Restore together with JoinLobbyByJoinCode.
     //private string m_joinCodeInput = "";
 
@@ -60,7 +70,6 @@ public class MultiplayerManager : MonoBehaviour
         }
     }
 
-    private DisconnectMenuUI m_disconnectMenuUI;
 
     public static MultiplayerManager Instance;
 
@@ -157,27 +166,7 @@ public class MultiplayerManager : MonoBehaviour
             Debug.LogException(e);
         }
     }
-    private void Update()
-    {
-        if (m_currentMultiplayerStatus == MultiplayerStatus.InLobbyStatus || m_currentMultiplayerStatus == MultiplayerStatus.InGameStatus)
-        {
-            if (Keyboard.current.tabKey.wasPressedThisFrame)
-            {
-                CheckRef();
-                if (m_disconnectMenuUI != null)
-                {
-                    if (m_disconnectMenuUI.gameObject.activeSelf)
-                    {
-                        m_disconnectMenuUI.gameObject.SetActive(false);
-                    }
-                    else
-                    {
-                        m_disconnectMenuUI.gameObject.SetActive(true);
-                    }
-                }
-            }
-        }
-    }
+
     #endregion
 
     #region ConnectControllFunc
@@ -457,6 +446,8 @@ public class MultiplayerManager : MonoBehaviour
                 finally
                 {
                     m_currentLobby = null;
+                    m_lobbyRefreshTask = null;
+                    m_lastLobbyRefreshTime = -100f;
                     m_currentMultiplayerStatus = MultiplayerStatus.InMenuStatus;
                     m_isStartingGameScene = false;
 
@@ -519,6 +510,8 @@ public class MultiplayerManager : MonoBehaviour
             Debug.LogException(e);
         }
         m_currentLobby = null;
+        m_lobbyRefreshTask = null;
+        m_lastLobbyRefreshTime = -100f;
         if(GameMaster.Instance != null)
             GameMaster.Instance.ClearupAfterDisconnect();
         if(NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening)
@@ -655,6 +648,8 @@ public class MultiplayerManager : MonoBehaviour
                         }
                 };
 
+            m_lobbyRefreshTask = null;
+            m_lastLobbyRefreshTime = -100f;
             m_currentLobby =
                 await LobbyService.Instance.CreateLobbyAsync(
                     GetShortPlayerId(),
@@ -695,6 +690,10 @@ public class MultiplayerManager : MonoBehaviour
             NetworkManager.Singleton.Shutdown();
 
         m_currentLobby = null;
+
+        m_lobbyRefreshTask = null;
+
+        m_lastLobbyRefreshTime = -100f;
         m_currentMultiplayerStatus = MultiplayerStatus.InMenuStatus;
     }
 
@@ -874,6 +873,8 @@ public class MultiplayerManager : MonoBehaviour
                 Player = CreateLobbyPlayerData(m_lobbyRoleClient)
             };
 
+            m_lobbyRefreshTask = null;
+            m_lastLobbyRefreshTime = -100f;
             m_currentLobby = await LobbyService.Instance.JoinLobbyByIdAsync(lobbyId, _options);
 
             if(m_currentLobby.Data == null||!m_currentLobby.Data.ContainsKey("joinCode"))
@@ -929,14 +930,55 @@ public class MultiplayerManager : MonoBehaviour
         if (m_currentLobby == null)
             return false;
 
+        if (m_lobbyRefreshTask != null && !m_lobbyRefreshTask.IsCompleted)
+            return await m_lobbyRefreshTask;
+
+        if (Time.unscaledTime - m_lastLobbyRefreshTime < m_minLobbyRefreshInterval)
+            return true;
+
+        string _lobbyId = m_currentLobby.Id;
+        Task<bool> _previousTask = m_lobbyRefreshInFlightTask;
+        m_lobbyRefreshTask = RefreshCurrentLobbyThrottled(_lobbyId, _previousTask);
+        m_lobbyRefreshInFlightTask = m_lobbyRefreshTask;
+        return await m_lobbyRefreshTask;
+    }
+
+    private async Task<bool> RefreshCurrentLobbyThrottled(string lobbyId, Task<bool> previousTask)
+    {
+        if (previousTask != null && !previousTask.IsCompleted)
+            await previousTask;
+
+        while (Time.unscaledTime - m_lastGlobalLobbyRefreshTime < m_minLobbyRefreshInterval)
+        {
+            float _delay = m_minLobbyRefreshInterval - (Time.unscaledTime - m_lastGlobalLobbyRefreshTime);
+            await Task.Delay(Mathf.Max(1, Mathf.CeilToInt(_delay * 1000f)));
+        }
+
+        if (m_currentLobby == null || m_currentLobby.Id != lobbyId)
+            return false;
+
+        m_lastLobbyRefreshTime = Time.unscaledTime;
+        m_lastGlobalLobbyRefreshTime = m_lastLobbyRefreshTime;
+        return await RefreshCurrentLobbyCore();
+    }
+
+    private async Task<bool> RefreshCurrentLobbyCore()
+    {
+        string _lobbyId = m_currentLobby.Id;
         try
         {
-            m_currentLobby = await LobbyService.Instance.GetLobbyAsync(m_currentLobby.Id);
+            Lobby _lobby = await LobbyService.Instance.GetLobbyAsync(_lobbyId);
+            if (m_currentLobby == null || m_currentLobby.Id != _lobbyId)
+                return false;
+            m_currentLobby = _lobby;
             return true;
         }
         catch (LobbyServiceException e)
         {
-            Debug.LogError(e);
+            if (e.Reason == LobbyExceptionReason.RateLimited)
+                Debug.LogWarning("MultiplayerManager: lobby refresh rate-limited; using the last known lobby data.");
+            else
+                Debug.LogError(e);
             return false;
         }
         catch (System.Exception e)
@@ -1132,33 +1174,13 @@ public class MultiplayerManager : MonoBehaviour
         finally
         {
             m_currentLobby = null;
+            m_lobbyRefreshTask = null;
+            m_lastLobbyRefreshTime = -100f;
             m_currentMultiplayerStatus = MultiplayerStatus.InMenuStatus;
         }
     }
 
-    public async Task DisconnectClient()
-    {
-        if (m_currentLobby != null)
-        {
-            try
-            {
-                await LobbyService.Instance.RemovePlayerAsync(m_currentLobby.Id, AuthenticationService.Instance.PlayerId);
-            }
-            catch
-            {
-                Debug.LogError("Failed to leave lobby");
-            }
 
-            m_currentLobby = null;
-        }
-
-        NetworkManager.Singleton.Shutdown();
-
-        if (m_debugMode)
-        {
-            Debug.Log("Client disconnected");
-        }
-    }
 
     public bool LobbyConnected()
     {
@@ -1440,25 +1462,7 @@ public class MultiplayerManager : MonoBehaviour
     }
     #endregion
 
-    private void CheckRef()
-    {
-        if (m_disconnectMenuUI == null)
-        {
-            DisconnectMenuUI[] _searchResult = FindObjectsByType<DisconnectMenuUI>(FindObjectsInactive.Include, FindObjectsSortMode.None);
 
-            if (_searchResult.Length > 0)
-            {
-                if (_searchResult.Length > 1)
-                {
-                    Debug.LogError("DisconnectMenu Duplicate!");
-                }
-                else if (_searchResult.Length == 1)
-                {
-                    m_disconnectMenuUI = _searchResult[0];
-                }
-            }
-        }
-    }
 
     public Lobby GetCurrentLobby()
     {
@@ -1508,6 +1512,10 @@ public class MultiplayerManager : MonoBehaviour
         }
         
         m_currentLobby = null;
+
+        m_lobbyRefreshTask = null;
+
+        m_lastLobbyRefreshTime = -100f;
         m_currentMultiplayerStatus = MultiplayerStatus.InMenuStatus;
 
         if(GameMaster.Instance != null )

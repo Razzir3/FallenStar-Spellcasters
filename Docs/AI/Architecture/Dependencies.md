@@ -1,8 +1,8 @@
 # Class Dependencies and Regression Points
 
-- **Audit date:** 2026-10-18
-- **Baseline:** commit `1f6d2f1` plus the uncommitted working tree
-- **Method:** static reading. Every edge below was found as a real call, field access or event subscription in code. Edges were not inferred from names.
+- **Updated:** 2026-10-20 (TASK-N8 refresh). First audit: 2026-10-18.
+- **Code baseline:** commit `391e079` **plus the uncommitted working tree** with tasks L1, L2/N31, N30, N17, L6, L7, L9, L10 and N28. Claude has not reviewed that working tree yet.
+- **Method:** static reading. Every edge below was found as a real call, field access or event subscription in code, not inferred from names.
 - Tags are defined in [Architecture.md](Architecture.md).
 
 **Sources:** all files in `Assets/Scripts/**`. Scene and prefab wiring comes from `Assets/Scenes/*.unity` and `Assets/Prefab/**/*.prefab`, matched by script GUID from the `.cs.meta` files.
@@ -13,27 +13,30 @@
 
 | Script | Used in |
 |---|---|
-| `Bootstrap`, `AuthManager`, `SceneFlowManager`, `MultiplayerManager` | `LoginScene` / `AppRoot` (same GameObject, DDOL). Legacy copies also exist in `SampleScene`, `MultiplayerScene`, `BootsTrap.prefab`, `MultiplayerManager.prefab` |
+| `Bootstrap`, `AuthManager`, `SceneFlowManager`, `MultiplayerManager` | `LoginScene` / `AppRoot` (one GameObject, DDOL). Old copies of `Bootstrap` and `MultiplayerManager` also sit in `BootsTrap.prefab` and `MultiplayerManager.prefab`; no scene uses those prefabs. |
 | `LoginUI` | `LoginScene` |
 | `MainMenuUI` | `MainMenuScene` |
-| `SettingsUI`, `SettingsSceneButtonsUI` (M12) | `SettingsScene`; dropdown reference, localized labels and Back binding assigned |
+| `SettingsUI`, `SettingsSceneButtonsUI` | `SettingsScene` |
 | `LobbyControlUI`, `LobbyListUI`, `LobbyPlayerListUI`, `CurrentLobbyUI` | `LobbyScene` |
 | `LobbyListItemUI`, `LobbyPlayerItemUI` | `UiPrefab/LobbyListItemPrefab`, `LobbyPlayerItemPrefab` |
 | `SessionManager` | `SessionManager.prefab` → in-scene instance in `GameScene` |
-| `PlayerUI`, `ConfirmTargetButtonUI`, `ConfirmSendButton` (class `ConfirmSendButtonUI1`), `LeaveMatchUI` (N19) | `UiPrefab/PlayerUIPrefab` → in-scene instance in `GameScene` |
+| `PlayerUI`, `ConfirmTargetButtonUI`, `ConfirmSendButton` (class `ConfirmSendButtonUI1`), `LeaveMatchUI` | `UiPrefab/PlayerUIPrefab` → in-scene instance in `GameScene` |
 | `CardWorldViewManager` | `CardWorldManagerPrefab` → `GameScene` |
 | `PlayerCardWorldArea` (file `PlayerCardfWorldArea.cs`) | `PlayerWorldCardAreaPrefab` ×2 in `GameScene` (`m_sessionSearchId` 0 and 1) |
 | `SpawnPoint` | `SpawnPoint.prefab`: ×2 in `GameScene` (`m_teamId` 0 and 1), and as a child of `BlockBody` |
 | `GameAnnouncerUI`, `LavaKillZone` | `GameScene` |
-| `GameMaster` | `GameMasterPrefab` (runtime spawn) |
+| `ResultMenuUI`, `ResultSceneController` | `ResultScene` |
+| `GameMaster` | `GameMasterPrefab` (spawned at runtime) |
 | `PlayerSession`, `CardPreviewController` | `PlayerSessionPrefab` |
 | `PlayerController`, `PonyColorScript` | `BoardPrefab/PonyBase` |
 | `BlockController` | `BoardPrefab/BlockBody` |
 | `NetworkCard` | `CardPrefab` |
 | `CardViewUI` / `CardViewWorld` | `CardViewUIPrefab` / `BoardPrefab/CardWorldViewPrefab` |
-| **Not referenced anywhere** | `DisconnectButtonUI`, `LocalizedTMPFormat`. `DisconnectMenuUI` and `SpawnPanelUI` appear only in the disabled legacy scenes. |
+| Not components (plain classes, structs, ScriptableObjects, static helpers) | `CardData`, `CardDataBase`, `CardViewBase`, `CardControllPackage`, `PlayerControlPackage`, `PlayerTurnSelection`, `GameSlot`, `MatchResultData`, `SuspiciousActivityLog`, `GameSettingsPrefs`, `DebugModeGuard` |
 
-The NetworkManager uses `Prefab/NetworkPrefabs.asset`, which contains GameMaster, PonyBase, BlockBody, CardPrefab, SessionManager, SpawnPoint and PlayerSession, plus one GUID `e651dbb3…` that was not resolved inside `Assets`. **[Unknown]**
+Every component script is used by at least one enabled scene or prefab.
+
+The NetworkManager uses `Prefab/NetworkPrefabs.asset`: GameMaster, PonyBase, BlockBody, CardPrefab, SessionManager, SpawnPoint and PlayerSession. The extra GUID `e651dbb3…` is NGO's own `NetworkPrefabsList` script (U5, closed).
 
 ---
 
@@ -50,6 +53,7 @@ graph TD
   subgraph GameScene
     SM[SessionManager NB]
     PUI[PlayerUI NB]
+    LMUI[LeaveMatchUI]
     CWVM[CardWorldViewManager]
     GA[GameAnnouncerUI]
     PCWA[PlayerCardWorldArea x2]
@@ -61,22 +65,32 @@ graph TD
   BC[BlockController NB]
   NC[NetworkCard NB]
   DB[(CardDatabase / CardData)]
+  MRD[(MatchResultData)]
+  PREFS[(GameSettingsPrefs)]
 
   LoginUI --> AM
   LoginUI --> SFM
   MainMenuUI --> SFM
+  SettingsUI --> PREFS
+  SettingsSceneButtonsUI --> SFM
   LobbyControlUI --> MM
+  LobbyControlUI --> SFM
   LobbyListUI --> MM
   CurrentLobbyUI --> MM
+  ResultMenuUI --> MRD
+  ResultMenuUI --> SFM
   MM --> BS
   MM --> SFM
   MM --> GM
   MM --> SM
   MM --> AM
   BS --> GM
+  BS --> PREFS
   SFM -->|NGO SceneManager| GameScene
 
   SM -->|spawns| PS
+  SM --> GM
+  SM --> PUI
   GM --> SM
   GM -->|spawns| PC
   GM -->|spawns| BC
@@ -86,7 +100,9 @@ graph TD
   GM --> CWVM
   GM --> PUI
   GM --> MM
+  GM --> MRD
   PS -->|ServerRpc| GM
+  PS --> PUI
   PC -->|ServerRpc| GM
   LAVA --> GM
   NC --> DB
@@ -94,6 +110,9 @@ graph TD
   PUI --> SM
   PUI --> GM
   PUI --> PS
+  LMUI --> GM
+  LMUI --> PS
+  LMUI --> MM
   CWVM --> SM
   CWVM --> GM
   CWVM --> PCWA
@@ -108,63 +127,76 @@ graph TD
 
 | From → To | Calls / accesses | Where |
 |---|---|---|
-| `MultiplayerManager` → `Bootstrap` | `RecreateNetworkManager`, `RecreateGameMaster`, `m_gameMasterInstance` | `Start`, `StartHost`, `JoinLobbyById`, `JoinLobbyByJoinCode`, `OnLoadEventCompleted` |
-| `MultiplayerManager` → `GameMaster` | `ClearupAfterDisconnect`, `SpawnPlayers`, `StartNewGame`, `AbortMatch` | Existing cleanup/start paths; N14 `AbortGameStart` delegates startup failures to `AbortMatch`, or directly to `Disconnect` when GameMaster is absent |
-| `MultiplayerManager` → `SessionManager` | `Instance.m_playerSessions.Count`, `ClearSessionOnDisconnect` | `StartGameAfterSceneReady`, `CleanupAfterDisconnect` |
-| `MultiplayerManager` → `SceneFlowManager` | `LoadGameSceneNetwork`, `MarkNetworkSceneLoadingFinished`, `LoadLobbyScene`, `GameSceneName` | `StartGameSceneWhenReady`, `OnLoadEventCompleted`, `CleanupAfterDisconnect` |
-| `GameMaster` → `MultiplayerManager` | writes `m_currentMultiplayerStatus` | `GameMaster.Spawn.cs` `SpawnPlayers` (**bidirectional coupling**) |
-| `GameMaster` → `SessionManager` | `Instance.m_playerSessions` | `StartNewGame`, `ClearupAfterDisconnect`, `Spawn*`, `FindSessionForCardWorldArea`; L3 removes FindLostPlayer and its local-player read |
-| `GameMaster` → `PlayerUI` / `CardWorldViewManager` | `PlayerUI.Instance.ClearLocalUI()`, `CardWorldViewManager.Instance.ClearAllWorldViews()/RefreshAllSessions()` | `ClearupAfterDisconnect`, `SendCardDataClientRpc` (**server rules → client UI**) |
-| `GameMaster` → `PlayerSession` | the NetworkLists, `m_lifeCurrent`, `TeamId`, `GetCharacter/SetCharacter`, `SetSpawnPoint`, `AddBlock/DeleteBlock`, `ClearSession`, `SetOponent`, `AddCard` | throughout |
-| `GameMaster` → `PlayerController` | `m_hpCurrent/m_hpMax`, `GetRigidbody`, `Initialize`, `SessionObjectId` | `Processing.cs`, `Spawn.cs` |
-| `GameMaster` → `BlockController` | `m_blockHP`, `m_teamId`, `GetSpawn`, `GetSession`, `GetMaxHP`, `Initialize` | `Processing.cs`, `Spawn.cs`, `GameLoop.cs`; `GetMaxHP` reads the server-only maximum retained by `Initialize` (H3) |
+| `MultiplayerManager` → `Bootstrap` | `RecreateNetworkManager`, `RecreateGameMaster`, `m_gameMasterInstance` | `Start`, `StartHost`, `JoinLobbyById`, `OnLoadEventCompleted` |
+| `MultiplayerManager` → `GameMaster` | `ClearupAfterDisconnect`, `SpawnPlayers`, `StartNewGame`, `AbortMatch` | disconnect and result paths, `StartGameAfterSceneReady`, `AbortGameStart` |
+| `MultiplayerManager` → `SessionManager` | `Instance.m_playerSessions.Count`, `ClearSessionOnDisconnect` | `StartGameAfterSceneReady`, `CleanupAfterDisconnect`, `LeaveMatchToResultScene` |
+| `MultiplayerManager` → `SceneFlowManager` | `LoadGameSceneNetwork`, `MarkNetworkSceneLoadingFinished`, `LoadLobbyScene`, `LoadResultScene`, `GameSceneName` | `StartGameSceneWhenReady`, `OnLoadEventCompleted`, `CleanupAfterDisconnect`, `LeaveMatchToResultScene` |
+| `MultiplayerManager` → `AuthManager` | `Initialize` | `Start` |
+| `GameMaster` → `MultiplayerManager` | writes `m_currentMultiplayerStatus`; `Disconnect`; `LeaveMatchToResultScene` | `SpawnPlayers`, `AbortMatch`, `MatchEndedClientRpc` (**two-way coupling**) |
+| `GameMaster` → `MatchResultData` | `Set(isWinner, isDraw, reason)` | `MatchEndedClientRpc` (every peer) |
+| `GameMaster` → `SessionManager` | `Instance.m_playerSessions`, `GetPlayerSession` | `StartNewGame`, `ClearupAfterDisconnect`, `Spawn*`, `InputQueueUpdate`, `FindSessionForCardWorldArea`, suspicious-sender lookups |
+| `GameMaster` → `PlayerUI` / `CardWorldViewManager` | `ClearLocalUI`, `OnCardDataReceived`; `ClearAllWorldViews`, `RefreshAllSessions` | `ClearupAfterDisconnect`, `SendCardDataClientRpc` (**server rules → client UI**) |
+| `GameMaster` → `PlayerSession` | the three NetworkLists, `m_lifeCurrent`, `m_manaCapacity/m_manaCurrent`, `TeamId`, `GetCharacter/SetCharacter`, `SetSpawnPoint`, `AddBlock/DeleteBlock`, `ClearSession`, `ClearSelectedCard`, `SetOponent`, `AddCard`, `ReportSuspicious`, `GetSuspiciousLog`, `SelectionRejectedClientRpc`, `HandLimitDiscardClientRpc` | throughout |
+| `GameMaster` → `PlayerController` | `m_hpCurrent/m_hpMax`, `GetRigidbody`, `Initialize`, `SessionObjectId`, `GetSession` | `Processing.cs`, `Spawn.cs` |
+| `GameMaster` → `BlockController` | `m_blockHP`, `m_teamId`, `GetSpawn`, `GetSession`, `GetMaxHP`, `Initialize` | `Processing.cs`, `Spawn.cs`, `GameLoop.cs`, `PackageManaging.cs` |
 | `GameMaster` → `NetworkCard` | `m_cardData`, `m_ownerId`, `SetOwner`, `SetLocation`, `m_isRotated`, `m_isFaceUp`, `RepairCardData` | `Card.cs`, `PackageManaging.cs` |
-| `PlayerSession` → `GameMaster` | `CanPlayerSelectCards/Targets`, `m_gamePhase`, `IsWaitingRespawnPlayer`, `GetSessionByID`, `HandleConfirmTurn`, `HandleCardControlPackage` | `PlayerSession.cs` |
-| `PlayerSession` → `SessionManager` | sets `LocalPlayer` | `RegisterLocalPlayerWhenReady` |
+| `GameMaster` / `PlayerSession` → `CardTargetRules` | `RequiresSelectedTarget` | `PlayerActionPhase` and client `CheckPackage` share one rule (N20) |
+| `SessionManager` → `GameMaster` | `HandlePlayerLeft` | `OnClientDisconnected` (server) |
+| `SessionManager` → `PlayerUI` | `ClearLocalUI`, only when the local client disconnected (N17) | `OnClientDisconnected` |
+| `PlayerSession` → `GameMaster` | `CanPlayerSelectCards/CardTargets`, `m_gamePhase`, `IsWaitingRespawnPlayer`, `GetSessionByID`, `HandleConfirmTurn`, `HandleCardControlPackage`, `HandlePlayerSurrender` | `PlayerSession.cs` |
+| `PlayerSession` → `PlayerUI` | `OnSelectionRejected`, `ShowHandLimitDiscard` | owner-only client RPCs |
+| `PlayerSession` → `SessionManager` | sets `LocalPlayer`; `GetPlayerSession` for sender checks | `RegisterLocalPlayerWhenReady`, `LeaveMatchServerRpc` |
 | `PlayerSession` → `CardPreviewController` | `ShowPreview/HidePreview` | `SelectObject` |
+| `CardPreviewController` → `PlayerUI` / `Canvas` / `LayoutRebuilder` (UI4) | HUD root canvas, screen-space fallback, measured preview layout and local bounds | `Start`, `ShowPreview`; assigned references preserved |
 | `PlayerController` → `GameMaster` | `CanPlayerMove`, `HandlePlayerControlPackage` | `SendMovementInput`, `InputServerRpc` |
 | `PlayerController` → `PonyColorScript` | `SetMaterials`, `SetSelected` | `ApplyMaterial`, `SetSelected` |
-| `BlockController` ↔ `PlayerSession` | `SetSession/GetSession`; session holds a `BlockController[5,5]` | **server-only references** (not networked) |
-| `NetworkCard` → `GameMaster` / `CardWorldViewManager` | `GetCardDatabase` → `TryGetCard` with prerequisite guards; `RefreshAllSessions` on every NetworkVariable change | `RepairCardData` retains previous data on failed lookup (M14); `On*Changed` |
-| `PlayerUI` → `SessionManager` / `GameMaster` / `PlayerSession` | `LocalPlayer`; `m_gamePhase` subscription; NetworkList subscriptions; `GetHandCards/GetBoardPlayCards`; `SelectCardToPlay/Discard`; `ConfirmTurn` | `PlayerUI.cs` |
+| `BlockController` ↔ `PlayerSession` | `SetSession/GetSession`; the session holds a `BlockController[5,5]` | **server-only references** (not networked) |
+| `NetworkCard` → `GameMaster` / `CardWorldViewManager` | `GetCardDatabase` → `TryGetCard`; `RefreshAllSessions` on every NetworkVariable change | `RepairCardData` (keeps the old data on a failed lookup, M14); `On*Changed` |
+| `PlayerUI` → `SessionManager` / `GameMaster` / `PlayerSession` | `LocalPlayer`; `m_gamePhase` and `m_selectionPhaseId` subscriptions; NetworkList subscriptions; `GetHandCards/GetBoardPlayCards`; `SelectCardToPlay/Discard`; `ClearLocalCardSelection`; `PruneLocalCardSelection`; `IsCardSelectedToPlay/Discard`; `ConfirmTurn`; `GetSessionByID` (opponent mana) | `PlayerUI.cs` |
+| `LeaveMatchUI` → `GameMaster`, `SessionManager`, `PlayerSession`, `MultiplayerManager` | polls the phase; `LocalPlayer.RequestLeaveMatch`; falls back to `Disconnect` | `PlayerUIPrefab/LeaveMatch` |
+| `CardViewUI` / `CardViewWorld` → `CardViewBase` | `m_textData`, `ApplyTexts` on `SelectedLocaleChanged` (L7) | `CardViewBase.OnEnable/OnDisable` |
 | `CardWorldViewManager` → `SessionManager` / `GameMaster` / `PlayerCardWorldArea` | `m_playerSessions`; `GetPlayerCardWorldArea`; `Initialize/GetCardLocalPosition` | `CardWorldViewManager.cs` |
 | `PlayerCardWorldArea` → `CardWorldViewManager` | `RegisterArea` | `Initialize` (**mutual**) |
-| `GameAnnouncerUI` → `GameMaster` / `SessionManager` | `m_gamePhase`, `m_timer`, `m_activePlayer`, `m_waitingRespawnPlayer`; `LocalPlayer` | `UpdateAnnounceText` |
+| `GameAnnouncerUI` → `GameMaster` / `SessionManager` | `m_gamePhase`, `GetPhaseSecondsLeft`, `m_activePlayer`, `m_waitingRespawnPlayer`; `LocalPlayer` | `UpdateAnnounceText` |
 | `LavaKillZone` → `GameMaster` | `ServerKillPlayerByHazard` | `TryKillPlayer` |
-| `LoginUI` → `AuthManager`, `SceneFlowManager`. `MainMenuUI` / `LobbyControlUI` / `SettingsSceneButtonsUI` → `SceneFlowManager` | scene loads | UI scripts |
-| `DisconnectMenuUI` → `MultiplayerManager`, `LobbyControlUI.Instance`, `SpawnPanelUI.Instance` | `Disconnect`, `SetActive` | `OnClickLobbyDisconnect` (legacy scenes only) |
-| `LeaveMatchUI` → `GameMaster`, `SessionManager`, `PlayerSession`, `MultiplayerManager` (N19) | polls phase, requests `LocalPlayer.RequestLeaveMatch`, falls back to `Disconnect` | `PlayerUIPrefab/LeaveMatch`; owner-only RPC with sender validation delegates to server `HandlePlayerSurrender` → unchanged `EndMatch` / H5 transition |
-| `ResultMenuUI` → `MatchResultData`, `UI_table` (N19) | `Surrendered` maps winner/draw to opponent-left reason and loser to `m_reasonYouLeft` | `ResultScene` assigns `result_reason_youLeft`; five new localized leave/dialog/result keys in en/ru/ja |
-| `PlayerSession` / `GameMaster` → `CardTargetRules` (N20) | `RequiresSelectedTarget` | Client `CheckPackage` and server `PlayerActionPhase` share the unchanged eight optional-target cases |
-| `GameMaster` → `PlayerUI` (M14) | `OnCardDataReceived` after repair and world refresh | `SendCardDataClientRpc`; missing local hand/board views rebuild through existing `UpdateCards` |
+| `LobbyControlUI` → `MultiplayerManager` / `SceneFlowManager` | `StartHost`, `LobbyConnected`, `Disconnect`; `LoadMainMenuScene` | buttons and `RefreshUI` |
+| `LobbyListUI` → `MultiplayerManager` | `FindAvailableLobbies`, `JoinLobbyById` | `OnClickRefreshLobbyList`, `OnJoinLobbyClicked` |
+| `CurrentLobbyUI` → `MultiplayerManager` | `RefreshCurrentLobby`, `GetCurrentLobby`, `CanStartTwoPlayerGame`, `StartGameScene` | `RefreshLobbyLoop`, `OnClickStartGame` |
+| `LoginUI` → `AuthManager`, `SceneFlowManager`. `MainMenuUI` / `SettingsSceneButtonsUI` / `ResultMenuUI` → `SceneFlowManager` | sign-in, scene loads | UI scripts |
+| `SettingsUI` / `Bootstrap` → `GameSettingsPrefs` | `LanguageCode` write / read | `OnLanguageChanged`, `ApplySavedLanguage` |
+| `ResultMenuUI` → `MatchResultData` | `HasResult`, `IsWinner`, `IsDraw`, `Reason`, `Clear` | `Start`, `OnClickMainMenu` |
 
-### 2.2 Data / event contracts (network)
+### 2.2 Data and event contracts (network)
 
 | Contract | Writer | Readers |
 |---|---|---|
-| `GameMaster.m_gamePhase` | server `GameLoop` | `PlayerUI` (OnValueChanged), `GameAnnouncerUI` (poll), `PlayerSession` (poll), `GameMaster.Can*` |
-| `GameMaster.m_isInputLocked` (N3) | server Update mirrors resolving/respawn flags only on a change; spawned-server reset on cleanup/new game | clients' movement/selection/target gates; the server uses its live flags |
-| `GameMaster.m_selectionPhaseId` (N26) | server increments once at each CardSelectionPhase start; resets on new game; unchanged during respawn resume | local PlayerUI clears both local selection lists and rebuilds; balanced subscriptions on bind/cleanup/destroy |
-| `GameMaster.m_timer` | server phase/respawn coroutines; N18/M1 pause helper saves/restores the interrupted phase's elapsed value | `GameAnnouncerUI` |
+| `GameMaster.m_gamePhase` | server `GameLoop` and its helpers | `PlayerUI` (OnValueChanged), `GameAnnouncerUI`, `LeaveMatchUI`, `PlayerSession` (poll), `GameMaster.Can*` |
+| `GameMaster.m_phaseEndServerTime` (L1) | server, at phase start, a selection reset and resume; cleared on end, abort and new game | `GameMaster.GetPhaseSecondsLeft` → `GameAnnouncerUI` |
+| `GameMaster.m_isInputLocked` (N3) | server `Update`, only on a change; reset on cleanup and new game | clients' movement, selection and target gates. The server uses its own flags. |
+| `GameMaster.m_selectionPhaseId` (N26) | server, +1 at each `CardSelectionPhase` start; 0 on new game; unchanged by a respawn pause | local `PlayerUI` clears both selection lists and rebuilds |
 | `GameMaster.m_activePlayer` / `m_waitingRespawnPlayer` (`NetworkBehaviourReference`) | server | `GameAnnouncerUI`, `GameMaster.Can*`, `IsWaitingRespawnPlayer` |
-| `PlayerSession.m_handCards/m_boardPlayCards/m_boardDiscardCards` | server | `PlayerUI` (local session only), `CardWorldViewManager` (all sessions board), `GameMaster` |
-| `PlayerSession.TeamId/ClientId/CharacterObjectId/m_lifeCurrent/m_currentOponentNetworkObjectId` | server | UI, `GameMaster`, `CardWorldViewManager`, `PlayerCardWorldArea` binding |
-| `PlayerSession.m_manaCapacity/m_manaCurrent` (MANA1–MANA3) | server `GameMaster.StartNewGame`, `ApplyRoundManaGrowth`; accepted selection spending through `AddMana` | everyone may read; local play selection checks current mana; `PlayerUI` caches and displays own/opponent current and capacity |
-| `PlayerSession.SelectionRejectedClientRpc` (MANA2/MANA3) | server `HandleConfirmSelectionTurn`, targeted at the session owner | owner only: clears local selection and calls `PlayerUI.OnSelectionRejected` to clear highlights and show a localized two-second mana message |
-| `PlayerSession.HandLimitDiscardClientRpc` (M15) | server DrawCard's hand-limit helper, targeted at the owner | owner only: `PlayerUI.ShowHandLimitDiscard`; the shared active-message state preserves the correct text across locale changes |
-| `PlayerSession.PruneLocalCardSelection` (M15) | local hand rebuild and ordinary ConfirmTurn before ID conversion | removes null/no-longer-held selections; retains committed and still-valid carried-over cards |
-| `PlayerSession.IsCardSelectedToPlay/IsCardSelectedToDiscard` (N18/M1) | read-only queries over existing local selection lists | `PlayerUI.CreateCardView` restores play/discard colors during CardSelection rebuilds, including after RespawnWait |
+| `GameMaster.MatchEndedClientRpc(winnerClientId, reason)` | server `EndMatch` | every peer → `MatchResultData`, `LeaveMatchToResultScene` |
+| `GameMaster.SendCardDataClientRpc(cardId)` | server: to the owner on a draw, to everyone on board placement | `NetworkCard.RepairCardData`, `CardWorldViewManager`, `PlayerUI.OnCardDataReceived` |
+| `PlayerSession.m_handCards/m_boardPlayCards/m_boardDiscardCards` | server | `PlayerUI` (local session), `CardWorldViewManager` (every session's board), `GameMaster` |
+| `PlayerSession.TeamId/ClientId/CharacterObjectId/m_lifeCurrent/m_currentOponentNetworkObjectId` | server; `ClientId`, `TeamId` and lives are first written in server `OnNetworkSpawn` (N2) | UI, `GameMaster`, `CardWorldViewManager`, card-area binding |
+| `PlayerSession.m_manaCapacity/m_manaCurrent` | server `StartNewGame`, `ApplyRoundManaGrowth`, `AddMana` | everyone; local play selection checks current mana; `PlayerUI` shows own and opponent mana |
+| `PlayerSession.SelectionRejectedClientRpc`, `HandLimitDiscardClientRpc` | server, sent to the owner only | owner: clears the selection / shows a 2 s message |
+| `PlayerSession.ConfirmTurnServerRpc(intendedPhase, …)` (N21), `CardInputServerRpc`, `LeaveMatchServerRpc` | owner client | server `GameMaster` handlers |
 | `SessionManager.SessionDataList` (`NetworkList<SessionData>`) | server | all peers → `RebuildDictionary` → `m_playerSessions` |
 | `NetworkCard.m_ownerId/m_location/m_isRotated/m_isFaceUp` | server | `CardWorldViewManager`, `CardViewWorld` |
-| `NetworkCard.m_cardData` | **server direct field + `SendCardDataClientRpc` per client** | every view, `GameMaster`, `PlayerSession` |
-| `PlayerController.m_hpCurrent/m_hpMax/m_playerTeam/SessionObjectId` | server | `PlayerUI`, `PonyColorScript` via `PlayerController` |
-| `BlockController.m_teamId/m_blockHP` (L4) | server | `PlayerSession`, `GameMaster`; SetSession and fallback GetSpawn also use m_teamId |
+| `NetworkCard.m_cardData` | **a plain server field + `SendCardDataClientRpc` per client** | every view, `GameMaster`, `PlayerSession` |
+| `PlayerController.m_hpCurrent/m_hpMax/m_moveSpeedCurrent/m_playerTeam/SessionObjectId` | server; HP and speed in server `OnNetworkSpawn` (N22) | `PlayerUI`, `PonyColorScript` via `PlayerController` |
+| `PlayerController.InputServerRpc(PlayerControlPackage)` | owner client | server: sender check, `ClientId` overwritten, queued |
+| `BlockController.m_teamId/m_blockHP` | server | `PlayerSession` (targeting and respawn checks), `GameMaster`. L4 removed the duplicate `TeamId` variable. |
 
-L4 (2026-10-20) removes the duplicate BlockController.TeamId NetworkVariable and redirects its actual SetSession/GetSpawn uses to m_teamId. This removes the NGO Inspector's duplicate nicified-name collision. BlockBody.prefab is unchanged. N3/N26 add GameMaster NetworkVariables and N21 changes the confirm RPC signature, so peers must use the same updated build.
+**Same build on both peers.** These tasks changed the NetworkVariable layout or the RPC table:
+- N3, N26 and L1 added `GameMaster` NetworkVariables.
+- N21 changed the confirm RPC.
+- L10 removed `SendToClientRpc`.
 
-N2 (2026-10-20): SessionManager keeps Initialize before SpawnWithOwnership. Initialize stores pending IDs and the plain maximum-life value; server OnNetworkSpawn applies IDs/lives after NGO variable initialization, before the initial spawn message is sent. Spawned reinitialization applies immediately on the server. N22 likewise initializes pony HP 100/100 and speed 3 synchronously in server OnNetworkSpawn, retaining deferred session-dependent materials. N7 GetCharacter returns a cached controller or safely looks up a nonzero spawned ID without writing that ID. Actual first-spawn values on a remote client remain a manual verification requirement.
+Peers on different builds won't work together.
 
-`BlockController.m_ownerSession` and `PlayerSession.m_blocks` remain server-only. M8 removes the client `BlockController.GetSession()` read from AnyPlayer confirmation: the private `GetBlockOwnerSession` matches replicated `m_teamId` to local/opponent `TeamId`. Character targeting checks a pending null session. Pure-client target delivery still needs Play Mode verification.
+`BlockController.m_ownerSession` and `PlayerSession.m_blocks` are server-only. Clients find a block's owner by team instead (`PlayerSession.GetBlockOwnerSession`, M8), and find a block's spawn point through `BlockController.GetSpawn`, which falls back to the child component.
 
 ---
 
@@ -172,59 +204,97 @@ N2 (2026-10-20): SessionManager keeps Initialize before SpawnWithOwnership. Init
 
 | Object | Created | Destroyed / reset | Notes |
 |---|---|---|---|
-| `AppRoot` | `LoginScene` load | Never (DDOL). Duplicates on Login reload self-destroy | [Confirmed] |
-| `NetworkManager` | `Bootstrap.RecreateNetworkManager` at app start, and again before every host/join | `Destroy(old)` after `Shutdown()` | Event subscriptions are redone by `MultiplayerManager.SubscribeNetworkEvents`. [Risk] Other subscribers (`PlayerUI.OnEnable`, `SessionManager.OnNetworkSpawn`) bind to the instance that exists when they enable or spawn. |
+| `AppRoot` | `LoginScene` load | Never (DDOL). Duplicates self-destroy on a Login reload. | [Confirmed] |
+| `NetworkManager` | `Bootstrap.RecreateNetworkManager` at app start, and again before every host/join | `Shutdown()`, then `Destroy(old)` | `MultiplayerManager.SubscribeNetworkEvents` redoes its subscriptions. `PlayerUI.OnEnable` and `SessionManager.OnNetworkSpawn` bind to the instance that exists when they enable or spawn. |
 | `GameMaster` | Server, after the GameScene load event, through `RecreateGameMaster` (despawn old, spawn new) | Despawn, or scene unload on shutdown | `Instance` is set in `OnNetworkSpawn` and cleared in `OnNetworkDespawn` |
-| `SessionManager` | In-scene NetworkObject in `GameScene` | Scene unload | M16 (2026-10-20): `Awake` sets `Instance`; public `OnDestroy` clears it only when it still refers to this object, then calls NGO base cleanup. Despawn retains the singleton and always unsubscribes the session-list callback, even when NetworkManager is absent. `MultiplayerManager.CleanupAfterDisconnect` calls it before loading the lobby. |
-| `PlayerSession` | `SessionManager.CreateSession` per client | `SessionManager.OnClientDisconnected` (`Despawn`), or `ClearSessionOnDisconnect` | `LocalPlayer` is set by the owner coroutine. `GameMaster.m_players` is not updated on despawn. |
-| Character / blocks | `GameMaster.SpawnPlayers` / `RespawnCharacter` | Death (`DespawnCharacter`), block HP 0, `PlayerSession.ClearSession` | Client-owned: NGO destroys them when the owner disconnects, unless `DontDestroyWithOwner` is set. **[Unknown]** That flag was not inspected. |
-| Cards (84 with today's Common-only database) | `CreateDeck` at `StartNewGame` and server `RefillDeck` on exhaustion | Graveyard cards: `RefillDeck` despawns/destroys and untracks them before deck creation; other cleanup: `DespawnAllCards`, `PlayerSession.ClearHand` | Hand/board cards survive refills. Refill rarity ceiling defaults to Rare; initial ceiling is Unique. `ClearView` on despawn destroys the UI/world views. |
-| `PlayerUI` | In-scene NB in `GameScene` | Scene unload | Re-binds lazily in `Update`. Subscribes to `NetworkManager` callbacks in `OnEnable`. N1 (2026-10-20): public `OnDestroy` overrides NGO cleanup, clearing only its own singleton reference before calling `base.OnDestroy`. |
-| `CardWorldViewManager` | `GameScene` | Scene unload (`OnDestroy` → unsubscribe, clear views) | Re-registers when `m_playerSessions.Count` changes (polled in `Update`) |
+| `SessionManager` | In-scene NetworkObject in `GameScene` | Scene unload | `Awake` sets `Instance`; `OnDestroy` clears it only if it still points to this object (M16). Despawn always removes the list callback. |
+| `PlayerSession` | `SessionManager.CreateSession` per client | `SessionManager.OnClientDisconnected` (despawn) or `ClearSessionOnDisconnect` (server) | `LocalPlayer` is set by the owner's coroutine. `GameMaster.HandlePlayerLeft` removes a leaving session from `m_players` during a match. |
+| Character / blocks | `GameMaster.SpawnPlayers` / `RespawnCharacter` | Death (`DespawnCharacter`), block HP 0, `ClearSessionOnDisconnect` (character) | Client-owned with `DontDestroyWithOwner: 0`, so NGO destroys them when the owner disconnects (U4) |
+| Cards (84 per deck with today's database) | `CreateDeck` at `StartNewGame`, and server `RefillDeck` when the deck is empty | Graveyard cards: `RefillDeck` despawns and untracks them before building the new deck. Others: `DespawnAllCards`. | Hand and board cards survive refills. `NetworkCard.ClearView` on despawn destroys the UI and world views. |
+| `PlayerUI` | In-scene NB in `GameScene` | Scene unload | Binds lazily in `Update`. Subscribes to `NetworkManager` callbacks in `OnEnable`. `OnDestroy` clears only its own singleton reference and its `GameMaster` subscriptions (N1). |
+| `CardWorldViewManager` | `GameScene` | Scene unload (`OnDestroy` → unsubscribe, clear views) | Drops departed or destroyed sessions in `Update`; re-registers when the session count changes (L6) |
+| `MatchResultData` | `Set` in `MatchEndedClientRpc` | `Clear` in `ResultMenuUI.OnClickMainMenu` | Static; survives the scene change to `ResultScene` |
 
 ---
 
 ## 4. Coupling hot spots
 
-1. **`GameMaster`** (8 partial files, ~2.5k lines) owns rules, input queues, deck, spawning, card-area binding, RPC handlers and disconnect cleanup. It also calls client UI (`PlayerUI`, `CardWorldViewManager`) and writes `MultiplayerManager` state.
-2. **`PlayerSession`** (987 lines) mixes networked state (lists, lives, team), server-only data (block grid, spawn point), owner-only input (mouse raycast, target selection, card selection lists) and preview UI.
-3. **Static singleton access everywhere.** There are no interfaces or events between subsystems. UI discovers managers by polling `Instance` or `FindObjectsByType` in `Update`.
-4. **Card identity outside the network model.** `NetworkCard.m_cardData` is a plain field, set on the server and pushed through RPC. Client logic before the RPC arrives sees `null`. N20/M14 guard package validation, confirmation, automatic/active targeting and click logs. M14 notifies the local hand UI after repair so a missing view can appear without another list/phase change; unknown IDs retain the previous data. Identity transport itself is unchanged.
-5. **Team identity as an integer** shared across `SpawnPoint.m_teamId`, `PlayerCardWorldArea.m_sessionSearchId`, `PlayerSession.TeamId`, `BlockController.m_teamId/TeamId`, `PlayerController.m_playerTeam` and the material index in `PonyColorScript`. `GameAnnouncerUI` maps 0 → red and 1 → blue. Slots 2 and 3 exist in `SessionManager.GetFreeSlot` but have no scene support.
+1. **`GameMaster`** (8 partial files, about 3.4k lines) owns rules, input queues, deck, spawning, card-area binding, RPC handlers, match end and disconnect cleanup. It also calls client UI (`PlayerUI`, `CardWorldViewManager`) and writes `MultiplayerManager` state.
+2. **`PlayerSession`** (about 1.2k lines) mixes networked state (lists, lives, mana, team), server-only data (block grid, spawn point, suspicious-activity log), owner-only input (mouse raycast, targeting, card selection) and the preview UI.
+3. **`MultiplayerManager`** (about 1.6k lines) handles lobby, relay, start, result exit and disconnect. These async paths share flags (`m_onDisconnecting`, `m_isLeavingToResult`, `m_isRelayAction`, `m_isStartingGameScene`).
+4. **Static singletons everywhere.** There are no interfaces or events between subsystems. UI finds managers by polling `Instance`.
+5. **Card identity outside the network model.** `NetworkCard.m_cardData` is a plain field, set on the server and pushed by RPC. Client code sees `null` until the RPC arrives. N20/M14 guard package checks, confirmation, targeting and click logs.
+6. **Team identity as an integer** shared by `SpawnPoint.m_teamId`, `PlayerCardWorldArea.m_sessionSearchId`, `PlayerSession.TeamId`, `BlockController.m_teamId`, `PlayerController.m_playerTeam` and the material index in `PonyColorScript`. `GameAnnouncerUI` maps 0 → red and 1 → blue. Slots 2 and 3 exist in `SessionManager.GetFreeSlot`, but the scene has nothing for them.
 
 ---
 
-## 5. Regression points
+## 5. Packages and assets
 
-Each item is a location where a change is likely to break other systems. These are not fixes.
+Direct dependencies (`Packages/manifest.json`):
+
+| Package | Version | Used for |
+|---|---|---|
+| `com.unity.netcode.gameobjects` | 2.11.2 | All networking |
+| `com.unity.services.multiplayer` | 2.2.2 | Lobby and Relay (resolves `com.unity.transport` 2.7.2) |
+| `com.unity.services.authentication` | 3.6.1 | Anonymous sign-in |
+| `com.unity.localization` | 1.5.11 | Tables `UI_table`, `Cards`; locales en/ru/ja |
+| `com.unity.inputsystem` | 1.19.0 | Keyboard and mouse |
+| `com.unity.render-pipelines.universal` | 17.3.0 | Rendering |
+| `com.unity.ugui` | 2.0.0 | uGUI and TextMeshPro |
+| `com.unity.test-framework` | 1.6.0 | Not used by any test in the repo yet |
+
+- **VisualScripting was removed** by L10. Its only use was `ConvertTo<int>()` in the heal branch, now `System.Convert.ToInt32`: same rounding, checked by Codex for 7 values.
+- **Localization assets** (`Assets/Localization/`): `UI_table` (69 keys) and `Cards` (8 keys), each with en/ru/ja tables, plus the three locales and `Localization Settings.asset`.
+- **Font asset:** `Assets/Fonts/MPLUSRounded1c-Medium SDF.asset` is a dynamic TMP font that every TMP text uses.
+  - Its source font stays referenced, and "Clear Dynamic Data On Build" is on (N28).
+  - Editor runs add glyphs to it. Per `AGENTS.md`, restore it before committing unless the task changes the font settings.
+- **ParrelSync** is under `Assets/ParrelSync`. The clone `C:/Lesson/FallenStar-Spellcasters_clone_1` shares `Assets` through a symlink, so it sees uncommitted changes immediately.
+
+---
+
+## 6. Regression points
+
+Each item is a place where a change is likely to break another system. These are not fixes.
 
 | # | Area | Why fragile | Check after any change |
 |---|---|---|---|
-| RP1 | `GamePhase` enum | Serialized as an int in a NetworkVariable. Used by `PlayerUI`, `GameAnnouncerUI` (`switch` that **throws** `ArgumentOutOfRangeException` on unknown values), `HandleConfirmTurn`, `Can*`, and the localization keys `Phase.*` | Append values only. Update the announcer switch and add keys in en/ru/ja. |
-| RP2 | `HandleConfirmTurn` multiplexing | One RPC means "confirm selection", "end turn" or "confirm respawn" depending on the current phase | A phase change between the client click and server receipt changes the RPC's meaning |
-| RP3 | `CardControllPackage` with 4 fixed targets | `CreateEmpty` makes 4 slots. The server requires `count ≥ activities.Length` (always 4 because of `CardData.OnValidate`) | Changing the activity count or `OnValidate` changes validation |
-| RP4 | `CardData.OnValidate` | Rewrites activities 1–3 on every Inspector change | Editing any card asset can silently wipe data |
-| RP5 | `SendCardDataClientRpc` → `RefreshAllSessions` / `OnCardDataReceived` | Every card reveal triggers a full world-view rebuild; M14 additionally rebuilds missing local hand/board views | Data/list ordering, selection retention and N18 highlights; actual RPC-to-card-spawn ordering remains outside M14 |
-| RP6 | `MultiplayerManager` ↔ `NetworkManager` recreation | Subscriptions must be redone for every new NetworkManager. Other classes subscribe independently. | Host → leave → host again; join → leave → join |
-| RP7 | `CleanupAfterDisconnect` chain | Calls `SessionManager.ClearSessionOnDisconnect` and `GameMaster.ClearupAfterDisconnect` (the latter up to 3× per disconnect), both after or around `Shutdown()`. `PlayerSession.ClearSession` despawns without an `IsServer` guard. | Client leave, host leave, connection loss, app quit |
-| RP8 | `SessionManager.GetFreeSlot` → `TeamId` | Team is the slot index. Scene objects exist only for teams 0 and 1. | Reconnect ordering, third connection |
-| RP9 | Scene object names and ids | `SceneFlowManager` uses string scene names; areas and spawn points are matched by int team id | Renaming scenes, duplicating areas or spawn points |
-| RP10 | `ConfirmSendButton.cs` / `ConfirmSendButtonUI1` | File and class names differ while the script is referenced by `PlayerUIPrefab` | Whether the cast button works at all. **[Unknown]** Inspect in the Editor. |
-| RP11 | Runtime imports of `UnityEditor.*` and `NUnit` | `CardPreviewController.cs`, `CardControllPackage.cs` | Standalone player build. **[Unknown]** Not built during the audit. |
-| RP12 | Nested NetworkObjects | `SpawnPoint.prefab` (NetworkObject) is a child of `BlockBody` (NetworkObject) | NGO nested-object warnings or spawn errors. **[Unknown]** |
-| RP13 | Server authority (M4, 2026-10-20) | `GameMaster.Update` and `HandlePlayerControlPackage` now require `IsServer`; lobby-host checks remain in MultiplayerManager | Host/client movement regression; a full dedicated-server deployment remains unverified |
-| RP14 | Polling UI | `PlayerUI`, `GameAnnouncerUI`, `CardWorldViewManager`, `LobbyControlUI`, `DisconnectMenuUI`, `SpawnPanelUI` | Per-frame allocations and `FindObjectsByType` cost |
-| RP15 | Identifier typos (per `AGENTS.md`: report, do not rename) | `CardControllPackage`, `PlayerCardfWorldArea.cs`, `SetOponent`/`m_currentOponentNetworkObjectId`, `CheckActiveTaergetSelection`, `SingInAnonymous`/`SingOut`/`m_isSingingIn`, `HearthbeatLobby`, `MovePlayeToSpawnPoint`, `ClearupAfterDisconnect`, `DeffenceSpell`, `KnowLobbies`, `m_bootsTrap`, `_teamAssing`, `m_phaseAnouncementText`, `#region Valiable` | Any rename breaks serialized references, `nameof(HearthbeatLobby)` in `InvokeRepeating`, and the public API |
+| RP1 | `GamePhase` enum | Sent as an int in a NetworkVariable. Used by `PlayerUI`, `GameAnnouncerUI` (its `switch` **throws** on unknown values), `HandleConfirmTurn` / `IsConfirmForCurrentPhase`, `LeaveMatchUI`, `Can*`, and the `Phase.*` keys | Append values only. Update the announcer switch and add keys in en/ru/ja. |
+| RP2 | `HandleConfirmTurn` multiplexing | One RPC means "confirm selection", "end turn" or "confirm respawn". N21 tags it with the intended phase and drops mismatches. | A confirm sent just before a phase change is dropped; the player presses again |
+| RP3 | `CardControllPackage` with 4 fixed targets | `CreateEmpty` makes 4 slots. The server requires slots ≥ activities, and `CardData.OnValidate` keeps exactly 4 activities. | Changing the activity count changes validation |
+| RP4 | `SendCardDataClientRpc` → `RefreshAllSessions` / `OnCardDataReceived` | Every reveal rebuilds all world views; missing local views rebuild the hand | Data/list ordering, selection colours |
+| RP5 | `MultiplayerManager` ↔ `NetworkManager` recreation | Subscriptions must be redone for every new NetworkManager. Other classes subscribe on their own. | Host → leave → host again; join → leave → join |
+| RP6 | Disconnect and result chains | `HandleLostConnectionToHost`, `Disconnect`, `LeaveMatchToResultScene` and `CleanupAfterDisconnect` share flags and call `ClearupAfterDisconnect` / `ClearSessionOnDisconnect` around `Shutdown()` | Client leave, host leave, forfeit in each phase, connection loss, app quit |
+| RP7 | `SessionManager.GetFreeSlot` → `TeamId` | Team is the slot index; the scene supports teams 0 and 1 only | Reconnect order, a third connection |
+| RP8 | Scene names and IDs | `SceneFlowManager` uses scene-name strings; areas and spawn points are matched by integer team ID | Renaming scenes, duplicating areas or spawn points |
+| RP9 | `ConfirmSendButton.cs` / class `ConfirmSendButtonUI1` | File and class names differ, and `PlayerUIPrefab` references the script. It works today (C6). | Renaming either breaks the cast button. Report, don't rename. |
+| RP10 | Nested NetworkObjects | `SpawnPoint.prefab` (NetworkObject) is a child of `BlockBody` (NetworkObject) | NGO nested-object warnings or spawn errors (U2) |
+| RP11 | Server authority (M4) | `GameMaster.Update` and `HandlePlayerControlPackage` require `IsServer`; lobby-host checks stay in `MultiplayerManager` | Host/client movement; a dedicated server is untested |
+| RP12 | NetworkVariable layout and RPC table | Adding or removing NetworkVariables or RPCs on a NetworkBehaviour changes what peers expect | Both peers on the same build (§2.2) |
+| RP13 | Lobby request rate | Lobby calls are rate-limited per player. `RefreshCurrentLobby` throttles `GetLobbyAsync` to one request at a time, 1.5 s apart (N30). | Any new `GetLobbyAsync` caller must go through `RefreshCurrentLobby` |
+| RP14 | Debug flags (L9) | Release builds rely on `DebugModeGuard.Allow` as the first statement in `Awake` | A new class with a `m_debugMode` flag must call it too |
+| RP15 | Change-only UI (L6) | `GameAnnouncerUI`, `PlayerUI` mana labels and `LobbyControlUI` skip work when their cached state is unchanged | A new displayed value must be added to the cached state, or it won't refresh |
+| RP16 | Dynamic font asset (N28) | Any Editor run with new text changes the asset | Restore it before committing |
+| RP17 | Identifier typos (per `AGENTS.md`: report, don't rename) | `CardControllPackage`, `PlayerCardfWorldArea.cs`, `SetOponent` / `m_currentOponentNetworkObjectId`, `CheckActiveTaergetSelection`, `SingInAnonymous` / `SingOut` / `m_isSingingIn`, `HearthbeatLobby`, `MovePlayeToSpawnPoint`, `ClearupAfterDisconnect`, `DeffenceSpell`, `KnowLobbies`, `m_bootsTrap`, `_teamAssing`, `m_phaseAnouncementText`, `#region Valiable`, `ConfirmSendButtonUI1`, `m_startHandCards` (really the per-round draw count) | Any rename breaks serialized references, `nameof(HearthbeatLobby)` in `InvokeRepeating`, and the public API |
 
 ---
 
-## 6. Unknowns requiring separate verification
+## 7. Unknowns requiring separate verification
 
-1. Standalone player build success (RP11).
-2. `ConfirmSendButtonUI1` component loading in `PlayerUIPrefab` (RP10).
-3. NGO behaviour with the nested SpawnPoint NetworkObject (RP12).
-4. Pure-client (non-host) behaviour of server-only references: `BlockController.GetSession`, `PlayerSession.GetSpawnPoint`.
-5. `DontDestroyWithOwner` on character and block prefabs, and what happens on the client after an owner disconnects.
-6. Unresolved network prefab GUID `e651dbb3fbac04af2b8f5abf007ddc23`.
-7. Null `NetworkBehaviourReference` handling in NGO 2.11.2.
-8. Whether the uncommitted refactor (the split of `GameMaster.cs` and the moved managers) compiles in the Editor. No compilation was run.
+1. NGO behaviour with the nested `SpawnPoint` NetworkObject (RP10, U2). No warning in any log so far.
+2. The NGO `NetworkSceneManager.Dispose` NRE on Play Mode stop, Editor quit or domain reload (U9). It happens inside NGO during teardown and is probably harmless.
+3. The open manual checks of tasks L1–N28: countdown agreement, lobby request spacing over several create/join/start cycles, card text on a locale switch, and ja/ru glyphs in the match HUD in a player build ([implementation report §6](../Reports/2026-10-20_L1_L2_N31_N30_N17_L6_L7_L9_L10_N28_Implementation.md#6-manual-unity-editor-verification-steps)).
+
+## History
+
+Resolved since the first audit:
+- **Standalone build** (formerly RP11): runtime `UnityEditor` / `NUnit` imports were removed (C5), and player builds succeed (U1).
+- **`ConfirmSendButtonUI1` loading** (formerly RP10): works (C6, report #5).
+- **Unresolved network-prefab GUID:** U5, closed.
+- **Null `NetworkBehaviourReference` and `DontDestroyWithOwner`:** answered (U3, U4).
+- **Pure-client reads of server-only block owners:** M8 matches by team instead.
+- **`CardData.OnValidate`** used to overwrite activities 1–3; it now only keeps the array at 4.
+- **Duplicate `BlockController.TeamId`:** removed by L4. It also caused an Inspector `ArgumentException`.
+- **Legacy wiring:** `DisconnectMenuUI`, `SpawnPanelUI`, `DisconnectButtonUI`, `LocalizedTMPFormat`, the echo RPC and the legacy scenes are deleted (L10), so their edges are gone.
+- **Polling cost** (formerly RP14):
+  - the announcer and HUD now skip unchanged frames (L6)
+  - departed sessions no longer trigger scene searches (L6)

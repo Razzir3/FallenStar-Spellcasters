@@ -41,6 +41,7 @@ public class SessionManager : NetworkBehaviour
     #region UnityCallingMethods
     private void Awake()
     {
+        m_debugMode = DebugModeGuard.Allow(m_debugMode);
         if (Instance != null && Instance != this)
         {
             Destroy(gameObject);
@@ -190,7 +191,10 @@ public class SessionManager : NetworkBehaviour
                 SessionDataList.RemoveAt(i);
             }
         }
-        if (PlayerUI.Instance != null)
+        bool _isLocalDisconnect = NetworkManager.Singleton != null &&
+            clientId == NetworkManager.Singleton.LocalClientId;
+
+        if (_isLocalDisconnect && PlayerUI.Instance != null)
         {
             PlayerUI.Instance.ClearLocalUI();
         }

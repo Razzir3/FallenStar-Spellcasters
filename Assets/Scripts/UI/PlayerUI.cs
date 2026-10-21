@@ -6,6 +6,7 @@ using UnityEngine;
 using System.Collections.Generic;
 using UnityEngine.Localization;
 using UnityEngine.Localization.Settings;
+using UnityEngine.UI;
 
 public enum CardViewType
 {
@@ -20,6 +21,9 @@ public class PlayerUI : NetworkBehaviour
 
     [SerializeField]
     private RectTransform m_handContainer;
+    [SerializeField] private float m_handCardWidth = 200f;
+    private HorizontalLayoutGroup m_handLayout;
+    private float m_maxHandSpacing;
 
     public TMP_Text m_hpText;
     public TMP_Text m_lifeText;
@@ -47,6 +51,7 @@ public class PlayerUI : NetworkBehaviour
     private LocalizedString m_activeMessage;
 
     private PlayerSession m_playerSession;
+    private bool m_isLocalUiCleared;
     
     private CardViewUI m_selectedCardView;
     private NetworkCard m_selectedNetworkCard;
@@ -63,6 +68,7 @@ public class PlayerUI : NetworkBehaviour
     #endregion Variable
     private void Awake()
     {
+        m_debugMode = DebugModeGuard.Allow(m_debugMode);
         if (Instance != null &&
             Instance != this)
         {
@@ -71,6 +77,12 @@ public class PlayerUI : NetworkBehaviour
         }
 
         Instance = this;
+        if (m_handContainer != null)
+        {
+            m_handLayout = m_handContainer.GetComponent<HorizontalLayoutGroup>();
+            if (m_handLayout != null)
+                m_maxHandSpacing = m_handLayout.spacing;
+        }
     }
 
     public override void OnDestroy()
@@ -106,7 +118,8 @@ public class PlayerUI : NetworkBehaviour
         }
         if (SessionManager.Instance == null || SessionManager.Instance.LocalPlayer == null)
         {
-            ClearLocalUI();
+            if (m_playerSession != null || !m_isLocalUiCleared)
+                ClearLocalUI();
             return;
         }
         if (m_playerSession == null)
@@ -116,9 +129,12 @@ public class PlayerUI : NetworkBehaviour
 
             if (m_playerSession == null)
             {
-                ClearLocalUI();
+                if (!m_isLocalUiCleared)
+                    ClearLocalUI();
                 return;
             }
+
+            m_isLocalUiCleared = false;
 
             m_playerSession.m_handCards.OnListChanged +=
                 UpdateCards;
@@ -296,6 +312,29 @@ public class PlayerUI : NetworkBehaviour
         }
 
         ValidateSelectedCard();
+        UpdateHandSpacing();
+    }
+
+    private void UpdateHandSpacing()
+    {
+        if (m_handLayout == null || m_handContainer == null)
+            return;
+
+        int _count = m_cardViews.Count;
+        float _childWidth = 0f;
+        foreach (CardViewUI _view in m_cardViews.Values)
+        {
+            if (_view == null)
+                continue;
+            _childWidth = LayoutUtility.GetPreferredWidth(_view.transform as RectTransform);
+            break;
+        }
+
+        float _step = m_maxHandSpacing + _childWidth;
+        if (_count >= 2 && (_count - 1) * _step + m_handCardWidth > m_handContainer.rect.width)
+            _step = (m_handContainer.rect.width - m_handCardWidth) / (_count - 1);
+
+        m_handLayout.spacing = _step - _childWidth;
     }
 
     public void OnCardDataReceived(ulong cardNetworkObjectId)
@@ -507,7 +546,10 @@ public class PlayerUI : NetworkBehaviour
             pair.Value.Clicked -= OnCardClicked;
             pair.Value.AlterClicked -= OnCardAlterClicked;
             if (pair.Value != null)
+            {
+                pair.Value.gameObject.SetActive(false);
                 Destroy(pair.Value.gameObject);
+            }
             
         }
 
@@ -516,7 +558,10 @@ public class PlayerUI : NetworkBehaviour
         if (m_cardContainer != null)
         {
             for (int i = m_cardContainer.childCount - 1; i >= 0; i--)
+            {
+                m_cardContainer.GetChild(i).gameObject.SetActive(false);
                 Destroy(m_cardContainer.GetChild(i).gameObject);
+            }
         }
     }
     private void OnEnable()
@@ -561,6 +606,7 @@ public class PlayerUI : NetworkBehaviour
 
     public void ClearLocalUI()
     {
+        m_isLocalUiCleared = true;
         if (m_playerSession != null)
         {
             m_playerSession.m_handCards.OnListChanged -=
@@ -604,6 +650,7 @@ public class PlayerUI : NetworkBehaviour
         m_selectedCardView = null;
 
         ClearHandUI();
+        UpdateHandSpacing();
     }
     public void ConfirmTurn()
     {
