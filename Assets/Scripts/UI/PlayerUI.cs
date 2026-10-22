@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using UnityEngine.Localization;
 using UnityEngine.Localization.Settings;
 using UnityEngine.UI;
+using UnityEngine.InputSystem;
 
 public enum CardViewType
 {
@@ -24,6 +25,11 @@ public class PlayerUI : NetworkBehaviour
     [SerializeField] private float m_handCardWidth = 200f;
     private HorizontalLayoutGroup m_handLayout;
     private float m_maxHandSpacing;
+    private float m_lastHandWidth = -1f;
+    [SerializeField] private RectTransform m_cardViewDock;
+    public RectTransform CardViewDock => m_cardViewDock;
+    private CardPreviewController m_cardPreviewController;
+    private NetworkCard m_hoveredCard;
 
     public TMP_Text m_hpText;
     public TMP_Text m_lifeText;
@@ -104,6 +110,9 @@ public class PlayerUI : NetworkBehaviour
     // Update is called once per frame
     void Update()
     {
+        if (m_handContainer != null && m_handContainer.rect.width != m_lastHandWidth)
+            UpdateHandSpacing();
+
         if (m_messageHideTime >= 0f && Time.unscaledTime >= m_messageHideTime)
         {
             if (m_messageText != null)
@@ -313,12 +322,15 @@ public class PlayerUI : NetworkBehaviour
 
         ValidateSelectedCard();
         UpdateHandSpacing();
+        ValidateHoveredCard();
     }
 
     private void UpdateHandSpacing()
     {
         if (m_handLayout == null || m_handContainer == null)
             return;
+
+        m_lastHandWidth = m_handContainer.rect.width;
 
         int _count = m_cardViews.Count;
         float _childWidth = 0f;
@@ -331,8 +343,8 @@ public class PlayerUI : NetworkBehaviour
         }
 
         float _step = m_maxHandSpacing + _childWidth;
-        if (_count >= 2 && (_count - 1) * _step + m_handCardWidth > m_handContainer.rect.width)
-            _step = (m_handContainer.rect.width - m_handCardWidth) / (_count - 1);
+        if (_count >= 2 && (_count - 1) * _step + m_handCardWidth > m_lastHandWidth)
+            _step = (m_lastHandWidth - m_handCardWidth) / (_count - 1);
 
         m_handLayout.spacing = _step - _childWidth;
     }
@@ -384,10 +396,55 @@ public class PlayerUI : NetworkBehaviour
         _view.AlterClicked -= OnCardAlterClicked;
         _view.AlterClicked += OnCardAlterClicked;
 
+        _view.PointerEntered -= OnCardPointerEntered;
+        _view.PointerEntered += OnCardPointerEntered;
+        _view.PointerExited -= OnCardPointerExited;
+        _view.PointerExited += OnCardPointerExited;
+
         m_cardViews[card.NetworkObjectId] =
             _view;
 
         card.SetCurrentView(_view);
+    }
+
+    private CardPreviewController GetCardPreviewController()
+    {
+        if (m_cardPreviewController == null && m_playerSession != null)
+            m_cardPreviewController = m_playerSession.GetComponent<CardPreviewController>();
+        return m_cardPreviewController;
+    }
+
+    private void OnCardPointerEntered(CardViewUI view)
+    {
+        NetworkCard _card = view.GetNetworkCard();
+        CardPreviewController _controller = GetCardPreviewController();
+        if (_card == null || _controller == null)
+            return;
+        m_hoveredCard = _card;
+        Vector2 _position = Mouse.current != null ? Mouse.current.position.ReadValue() : Vector2.zero;
+        _controller.ShowPreview(_card, _position);
+    }
+
+    private void OnCardPointerExited(CardViewUI view)
+    {
+        NetworkCard _card = view.GetNetworkCard();
+        CardPreviewController _controller = GetCardPreviewController();
+        if (_controller != null && _controller.ShownCard == _card)
+            _controller.HidePreview();
+        if (m_hoveredCard == _card)
+            m_hoveredCard = null;
+    }
+
+    private void ValidateHoveredCard()
+    {
+        if (ReferenceEquals(m_hoveredCard, null))
+            return;
+        if (m_hoveredCard != null && m_cardViews.ContainsKey(m_hoveredCard.NetworkObjectId))
+            return;
+        CardPreviewController _controller = GetCardPreviewController();
+        if (_controller != null && _controller.ShownCard == m_hoveredCard)
+            _controller.HidePreview();
+        m_hoveredCard = null;
     }
 
     public void OnCardClicked(CardViewUI cardView)
@@ -545,6 +602,8 @@ public class PlayerUI : NetworkBehaviour
         {
             pair.Value.Clicked -= OnCardClicked;
             pair.Value.AlterClicked -= OnCardAlterClicked;
+            pair.Value.PointerEntered -= OnCardPointerEntered;
+            pair.Value.PointerExited -= OnCardPointerExited;
             if (pair.Value != null)
             {
                 pair.Value.gameObject.SetActive(false);
@@ -607,6 +666,11 @@ public class PlayerUI : NetworkBehaviour
     public void ClearLocalUI()
     {
         m_isLocalUiCleared = true;
+        CardPreviewController _controller = GetCardPreviewController();
+        if (_controller != null)
+            _controller.HidePreview();
+        m_hoveredCard = null;
+        m_cardPreviewController = null;
         if (m_playerSession != null)
         {
             m_playerSession.m_handCards.OnListChanged -=

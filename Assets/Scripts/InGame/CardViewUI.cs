@@ -6,7 +6,7 @@ using UnityEngine.Localization.Settings;
 using System;
 using UnityEngine.EventSystems;
 
-public class CardViewUI : CardViewBase, IPointerClickHandler
+public class CardViewUI : CardViewBase, IPointerClickHandler, IPointerEnterHandler, IPointerExitHandler
 {
     private void Awake()
     {
@@ -32,6 +32,8 @@ public class CardViewUI : CardViewBase, IPointerClickHandler
 
     public event Action<CardViewUI> Clicked;
     public event Action<CardViewUI> AlterClicked;
+    public event Action<CardViewUI> PointerEntered;
+    public event Action<CardViewUI> PointerExited;
     public override void Setup(CardData data)
     {
         m_textData = data;
@@ -105,10 +107,22 @@ public class CardViewUI : CardViewBase, IPointerClickHandler
         }
     }
 
+    public void OnPointerEnter(PointerEventData eventData)
+    {
+        PointerEntered?.Invoke(this);
+    }
+
+    public void OnPointerExit(PointerEventData eventData)
+    {
+        PointerExited?.Invoke(this);
+    }
+
     private void OnDestroy()
     {
         Clicked = null;
         AlterClicked = null;
+        PointerEntered = null;
+        PointerExited = null;
     }
 
     public void SetSelectedColor()

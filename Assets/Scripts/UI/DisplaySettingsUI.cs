@@ -11,6 +11,8 @@ public class DisplaySettingsUI : MonoBehaviour
     [SerializeField] private TMP_Dropdown m_resolutionDropdown;
     [SerializeField] private int m_minWidth = 1024;
     [SerializeField] private int m_minHeight = 720;
+    private const int k_frameAllowance = 16;
+    private const int k_titleBarAllowance = 64;
 
     private readonly LocalizedString m_fullscreenText = new("UI_table", "option_fullscreen");
     private readonly LocalizedString m_windowedText = new("UI_table", "option_windowed");
@@ -104,7 +106,7 @@ public class DisplaySettingsUI : MonoBehaviour
 
     private void FillResolutions(Vector2Int current, bool windowed)
     {
-        m_resolutions = BuildResolutionList(GetAvailableResolutions(), GetDisplaySize(), windowed,
+        m_resolutions = BuildResolutionList(GetAvailableResolutions(), windowed ? GetWindowedBounds() : GetDisplaySize(), windowed,
             current, new Vector2Int(m_minWidth, m_minHeight));
         if (m_resolutionDropdown == null)
             return;
@@ -134,13 +136,26 @@ public class DisplaySettingsUI : MonoBehaviour
 
     private static bool FitsDisplay(Vector2Int resolution, Vector2Int display, bool windowed)
     {
-        return windowed ? resolution.x < display.x && resolution.y < display.y :
-            resolution.x <= display.x && resolution.y <= display.y;
+        // Windowed callers already supply the work-area bounds, including frame allowances.
+        return resolution.x <= display.x && resolution.y <= display.y;
+    }
+
+    private static Vector2Int GetWindowedBounds()
+    {
+        return GetWindowedBounds(Screen.mainWindowDisplayInfo);
+    }
+
+    private static Vector2Int GetWindowedBounds(DisplayInfo display)
+    {
+        if (display.workArea.width <= 0 || display.workArea.height <= 0)
+            return new Vector2Int(display.width - 1, display.height - 1);
+        return new Vector2Int(display.workArea.width - k_frameAllowance, display.workArea.height - k_titleBarAllowance);
     }
 
     public static List<Vector2Int> BuildResolutionList(IEnumerable<Vector2Int> available,
         Vector2Int display, bool windowed, Vector2Int current, Vector2Int min)
     {
+        // For Windowed, display is the work-area bounds; otherwise it is the full display size.
         var _unique = new HashSet<Vector2Int>();
         foreach (Vector2Int _resolution in available)
         {
@@ -157,6 +172,24 @@ public class DisplaySettingsUI : MonoBehaviour
         return _result;
     }
 
+    public static Vector2Int PickWindowedSize(IReadOnlyList<Vector2Int> sortedList, Vector2Int bounds,
+        Vector2Int display, Vector2Int min, Vector2Int fallback)
+    {
+        float _displayAspect = display.y > 0 ? (float)display.x / display.y : 0f;
+        foreach (Vector2Int _resolution in sortedList)
+        {
+            if (_resolution.x >= min.x && _resolution.y >= min.y && FitsDisplay(_resolution, bounds, true) &&
+                _resolution.y > 0 && Mathf.Abs((float)_resolution.x / _resolution.y - _displayAspect) <= _displayAspect * .01f)
+                return _resolution;
+        }
+        foreach (Vector2Int _resolution in sortedList)
+        {
+            if (_resolution.x >= min.x && _resolution.y >= min.y && FitsDisplay(_resolution, bounds, true))
+                return _resolution;
+        }
+        return fallback;
+    }
+
     private void OnDisplayModeChanged(int index)
     {
         if (index < 0 || index > 1)
@@ -164,22 +197,13 @@ public class DisplaySettingsUI : MonoBehaviour
 
         bool _windowed = index == 1;
         Vector2Int _display = GetDisplaySize();
+        Vector2Int _bounds = _windowed ? GetWindowedBounds() : _display;
         Vector2Int _current = new(Screen.width, Screen.height);
         Vector2Int _target = _windowed ? _current : _display;
-        List<Vector2Int> _available = BuildResolutionList(GetAvailableResolutions(), _display, _windowed,
+        List<Vector2Int> _available = BuildResolutionList(GetAvailableResolutions(), _bounds, _windowed,
             _current, new Vector2Int(m_minWidth, m_minHeight));
-        if (_windowed && !FitsDisplay(_current, _display, true))
-        {
-            // Do not retain a full-monitor size merely because the truthful list includes it.
-            foreach (Vector2Int _resolution in _available)
-            {
-                if (_resolution.x >= m_minWidth && _resolution.y >= m_minHeight && FitsDisplay(_resolution, _display, true))
-                {
-                    _target = _resolution;
-                    break;
-                }
-            }
-        }
+        if (_windowed && !FitsDisplay(_current, _bounds, true))
+            _target = PickWindowedSize(_available, _bounds, _display, new Vector2Int(m_minWidth, m_minHeight), _current);
 
         Screen.SetResolution(_target.x, _target.y,
             _windowed ? FullScreenMode.Windowed : FullScreenMode.FullScreenWindow);

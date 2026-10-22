@@ -856,7 +856,7 @@ PlayerSettings:
   m_RenderingPath: 1
   m_MobileRenderingPath: 1
   metroPackageName: FallenStar-Spellcasters
-  metroPackageVersion: 
+  metroPackageVersion: 1.0.0.0
   metroCertificatePath: Assets/WSATestCertificate.pfx
   metroCertificatePassword: 
   metroCertificateSubject: DefaultCompany
@@ -864,7 +864,7 @@ PlayerSettings:
   metroCertificateNotAfter: 00463fe11f12de01
   metroApplicationDescription: FallenStar-Spellcasters
   wsaImages: {}
-  metroTileShortName: 
+  metroTileShortName: FallenStar-Spellcasters
   metroTileShowName: 0
   metroMediumTileShowName: 0
   metroLargeTileShowName: 0

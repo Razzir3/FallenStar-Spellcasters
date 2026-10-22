@@ -380,14 +380,6 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 377410624}
     m_Modifications:
-    - target: {fileID: 793786715222444024, guid: 97d94c31dec48924e9ba796668aef5e0, type: 3}
-      propertyPath: m_fontSize
-      value: 21.5
-      objectReference: {fileID: 0}
-    - target: {fileID: 793786715222444024, guid: 97d94c31dec48924e9ba796668aef5e0, type: 3}
-      propertyPath: m_enableAutoSizing
-      value: 1
-      objectReference: {fileID: 0}
     - target: {fileID: 1841656437115289521, guid: 97d94c31dec48924e9ba796668aef5e0, type: 3}
       propertyPath: m_Pivot.x
       value: 0.5
@@ -486,7 +478,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4772283208930924661, guid: 97d94c31dec48924e9ba796668aef5e0, type: 3}
       propertyPath: m_fontSizeMin
-      value: 24
+      value: 30
       objectReference: {fileID: 0}
     - target: {fileID: 4772283208930924661, guid: 97d94c31dec48924e9ba796668aef5e0, type: 3}
       propertyPath: m_fontSizeMax
@@ -615,7 +607,7 @@ MonoBehaviour:
   m_timeText: {fileID: 282301680}
   m_maxVisibleLines: 2
   m_autoSize: 1
-  m_minFontSize: 24
+  m_minFontSize: 30
   m_maxFontSize: 48
   m_useEllipsis: 1
 --- !u!1 &352922479

@@ -21,6 +21,7 @@
 | `LobbyListItemUI`, `LobbyPlayerItemUI` | `UiPrefab/LobbyListItemPrefab`, `LobbyPlayerItemPrefab` |
 | `SessionManager` | `SessionManager.prefab` → in-scene instance in `GameScene` |
 | `PlayerUI`, `ConfirmTargetButtonUI`, `ConfirmSendButton` (class `ConfirmSendButtonUI1`), `LeaveMatchUI` | `UiPrefab/PlayerUIPrefab` → in-scene instance in `GameScene` |
+| `ResolutionProfileLayout` / `UiResolutionProfile` | `PlayerUIPrefab` local layout / static width threshold; parent `CanvasScaler` is resolved at runtime |
 | `CardWorldViewManager` | `CardWorldManagerPrefab` → `GameScene` |
 | `PlayerCardWorldArea` (file `PlayerCardfWorldArea.cs`) | `PlayerWorldCardAreaPrefab` ×2 in `GameScene` (`m_sessionSearchId` 0 and 1) |
 | `SpawnPoint` | `SpawnPoint.prefab`: ×2 in `GameScene` (`m_teamId` 0 and 1), and as a child of `BlockBody` |
@@ -147,7 +148,8 @@ graph TD
 | `PlayerSession` → `PlayerUI` | `OnSelectionRejected`, `ShowHandLimitDiscard` | owner-only client RPCs |
 | `PlayerSession` → `SessionManager` | sets `LocalPlayer`; `GetPlayerSession` for sender checks | `RegisterLocalPlayerWhenReady`, `LeaveMatchServerRpc` |
 | `PlayerSession` → `CardPreviewController` | `ShowPreview/HidePreview` | `SelectObject` |
-| `CardPreviewController` → `PlayerUI` / `Canvas` / `LayoutRebuilder` (UI4) | HUD root canvas, screen-space fallback, measured preview layout and local bounds | `Start`, `ShowPreview`; assigned references preserved |
+| `CardPreviewController` → `PlayerUI` / `Canvas` / `LayoutRebuilder` (UI4/UI6, N50) | Resolve missing HUD canvas/root and `CardViewDock` on demand; fit/refit the preview in the dock, otherwise use the pointer/clamp fallback | `ShowPreview`, `TryResolveTargets`, `LateUpdate`; live assigned references preserved; destroyed scene targets re-resolved |
+| `PlayerUI` → local `PlayerSession.CardPreviewController` / `CardViewUI` | Cache the local controller; subscribe to hand pointer enter/exit; preserve matching previews through clicks and clean up removed cards | `CreateCardView`, hover handlers, `UpdateCards`, `ClearHandUI`, `ClearLocalUI` |
 | `PlayerController` → `GameMaster` | `CanPlayerMove`, `HandlePlayerControlPackage` | `SendMovementInput`, `InputServerRpc` |
 | `PlayerController` → `PonyColorScript` | `SetMaterials`, `SetSelected` | `ApplyMaterial`, `SetSelected` |
 | `BlockController` ↔ `PlayerSession` | `SetSession/GetSession`; the session holds a `BlockController[5,5]` | **server-only references** (not networked) |
