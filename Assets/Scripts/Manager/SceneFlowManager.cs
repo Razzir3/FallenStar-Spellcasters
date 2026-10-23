@@ -8,7 +8,6 @@ public class SceneFlowManager : MonoBehaviour
     public static SceneFlowManager Instance;
 
     [Header("Scene Names")]
-    [SerializeField] private string m_loginSceneName = "LoginScene";
     [SerializeField] private string m_mainMenuScene = "MainMenuScene";
     [SerializeField] private string m_lobbySceneName = "LobbyScene";
     [SerializeField] private string m_gameSceneName = "GameScene";
@@ -42,10 +41,8 @@ public class SceneFlowManager : MonoBehaviour
     #endregion
 
     #region LoadingFunc
-    public void LoadLoginScene()
-    {
-        LoadOfflineScene(m_loginSceneName);
-    }
+
+
     public void LoadMainMenuScene()
     {
         LoadOfflineScene(m_mainMenuScene);

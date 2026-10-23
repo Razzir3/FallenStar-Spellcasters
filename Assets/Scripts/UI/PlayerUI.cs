@@ -49,6 +49,8 @@ public class PlayerUI : NetworkBehaviour
 
     private int m_hp;
     private int m_life;
+    private bool m_healthTextDirty = true;
+    private bool m_isDeadTextShown;
     private int m_manaCurrent = -1;
     private int m_manaCapacity = -1;
     private int m_opponentManaCurrent = -1;
@@ -174,18 +176,32 @@ public class PlayerUI : NetworkBehaviour
         UpdateManaTexts();
         if (m_playerSession.m_lifeCurrent.Value<0)
         {
-            m_hpText.text = m_playerDeadText.GetLocalizedString();
-            m_lifeText.text = ("");
+            if (m_healthTextDirty || !m_isDeadTextShown)
+            {
+                m_hpText.text = m_playerDeadText.GetLocalizedString();
+                m_lifeText.text = ("");
+                m_healthTextDirty = false;
+                m_isDeadTextShown = true;
+            }
             ClearSelectedCard();
             //m_playerSession = null;
         }
         else if (m_playerSession.CharacterObjectId.Value != 0&&m_playerSession.GetCharacter()!=null)
         {
-            m_hp = m_playerSession.GetCharacter().m_hpCurrent.Value;
-            m_life = m_playerSession.m_lifeCurrent.Value;
-
-            m_hpText.text = m_labelHp.GetLocalizedString(m_hp);
-            m_lifeText.text = m_labelLife.GetLocalizedString(m_life);
+            int _hp = m_playerSession.GetCharacter().m_hpCurrent.Value;
+            int _life = m_playerSession.m_lifeCurrent.Value;
+            if (m_healthTextDirty || m_isDeadTextShown || m_hp != _hp)
+            {
+                m_hp = _hp;
+                m_hpText.text = m_labelHp.GetLocalizedString(m_hp);
+            }
+            if (m_healthTextDirty || m_isDeadTextShown || m_life != _life)
+            {
+                m_life = _life;
+                m_lifeText.text = m_labelLife.GetLocalizedString(m_life);
+            }
+            m_healthTextDirty = false;
+            m_isDeadTextShown = false;
         }
     }
 
@@ -228,6 +244,7 @@ public class PlayerUI : NetworkBehaviour
 
     private void ResetManaTextCache()
     {
+        m_healthTextDirty = true;
         m_manaCurrent = m_manaCapacity = -1;
         m_opponentManaCurrent = m_opponentManaCapacity = -1;
     }
@@ -449,10 +466,11 @@ public class PlayerUI : NetworkBehaviour
 
     public void OnCardClicked(CardViewUI cardView)
     {
-        Debug.Log("Card clicked: " + cardView.name);
-
         if (cardView == null)
             return;
+
+        if (m_debugMode)
+            Debug.Log("Card clicked: " + cardView.name);
 
         NetworkCard networkCard = cardView.GetNetworkCard();
 
@@ -466,7 +484,8 @@ public class PlayerUI : NetworkBehaviour
         {
             networkCard.m_isSelected = false;
             ClearSelectedCard();
-            Debug.Log("Card deselected");
+            if (m_debugMode)
+                Debug.Log("Card deselected");
             return;
         }
 
@@ -485,10 +504,11 @@ public class PlayerUI : NetworkBehaviour
     //todo
     public void OnCardAlterClicked(CardViewUI cardView)
     {
-        Debug.Log("Card Alter clicked: " + cardView.name);
-
         if (cardView == null)
             return;
+
+        if (m_debugMode)
+            Debug.Log("Card Alter clicked: " + cardView.name);
 
         NetworkCard networkCard = cardView.GetNetworkCard();
 
@@ -502,7 +522,8 @@ public class PlayerUI : NetworkBehaviour
         {
             networkCard.m_isSelected = false;
             ClearSelectedCard();
-            Debug.Log("Card deselected");
+            if (m_debugMode)
+                Debug.Log("Card deselected");
             return;
         }
 
@@ -718,21 +739,17 @@ public class PlayerUI : NetworkBehaviour
     }
     public void ConfirmTurn()
     {
-        if (m_playerSession == null)
-        {
-            if (SessionManager.Instance != null)
-            {
-                m_playerSession = SessionManager.Instance.LocalPlayer;
-            }
-        }
+        PlayerSession _session = m_playerSession;
+        if (_session == null && SessionManager.Instance != null)
+            _session = SessionManager.Instance.LocalPlayer;
 
-        if (m_playerSession == null)
+        if (_session == null)
         {
             Debug.LogWarning( "ConfirmTurn failed: local PlayerSession is null.");
 
             return;
         }
 
-        m_playerSession.ConfirmTurn();
+        _session.ConfirmTurn();
     }
 }

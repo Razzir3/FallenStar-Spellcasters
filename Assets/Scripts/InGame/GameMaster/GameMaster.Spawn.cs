@@ -207,11 +207,21 @@ public partial class GameMaster
         }
     }
 
-    public void SpawnPlayers()
+    public bool SpawnPlayers()
     {
         if (!IsServer)
         {
-            return;
+            return false;
+        }
+
+        foreach (var _playerSession in SessionManager.Instance.m_playerSessions)
+        {
+            if (_playerSession.Value.GetSessionRole() == SessionRole.Player &&
+                GetSpawnPoint(_playerSession.Value.TeamId.Value) == null)
+            {
+                Debug.LogError("SpawnPlayers failed: no spawn point for team: " + _playerSession.Value.TeamId.Value);
+                return false;
+            }
         }
 
         foreach (var _playerSession in
@@ -233,6 +243,7 @@ public partial class GameMaster
 
         MultiplayerManager.Instance.m_currentMultiplayerStatus =
             MultiplayerStatus.InGameStatus;
+        return true;
     }
     #endregion
 
@@ -248,6 +259,7 @@ public partial class GameMaster
         if (_spawnPoint == null)
         {
             Debug.LogError("No Spawn Point");
+            return;
         }
         for (int i = 0; i < 5; i++)
         {

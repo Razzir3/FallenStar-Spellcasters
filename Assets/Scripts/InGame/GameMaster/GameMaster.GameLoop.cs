@@ -482,7 +482,8 @@ public partial class GameMaster
     /// <returns>An IEnumerator for coroutine handling.</returns>
     private IEnumerator DrawCardPhase()
     {
-        Debug.Log("DrawPhase started");
+        if (m_debugMode)
+            Debug.Log("DrawPhase started");
         m_phaseElapsed = 0;
         StartPhaseCountdown(m_startHandCards * m_players.Count * m_cardDrawDelay);
         for (int i = 0; i < m_startHandCards; i++)
@@ -517,7 +518,8 @@ public partial class GameMaster
                 m_phaseElapsed += m_cardDrawDelay;
             }
         }
-        Debug.Log("Draw phase ended");
+        if (m_debugMode)
+            Debug.Log("Draw phase ended");
     }
     /// <summary>
     /// Pauses a phase only when a dead player can respawn, then resumes its saved state.

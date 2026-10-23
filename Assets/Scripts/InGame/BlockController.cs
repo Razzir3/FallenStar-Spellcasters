@@ -35,7 +35,8 @@ public class BlockController : NetworkBehaviour, ISelectable
     }
     public override void OnNetworkDespawn()
     {
-        Debug.Log("DespawnBlock");
+        if (m_debugMode)
+            Debug.Log("DespawnBlock");
         m_blockHP.OnValueChanged -= OnHpChanged;
     }
 
@@ -43,7 +44,7 @@ public class BlockController : NetworkBehaviour, ISelectable
     {
         if(m_debugMode)
         {
-            Debug.Log("HP changed {previous} to {current}");
+            Debug.Log($"HP changed {previous} to {current}");
         }
     }
 

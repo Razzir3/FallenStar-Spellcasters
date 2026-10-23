@@ -60,7 +60,6 @@ public class PonyColorScript : NetworkBehaviour
                 bodyRenderer.materials = mats;
             }
 
-            Debug.Log($"Applied body material index: {bodyMaterialIndex}");
         }
         else
         {
@@ -80,7 +79,6 @@ public class PonyColorScript : NetworkBehaviour
                 maneRenderer.materials = mats;
             }
 
-            Debug.Log($"Applied mane material index: {maneMaterialIndex}");
         }
         else
         {

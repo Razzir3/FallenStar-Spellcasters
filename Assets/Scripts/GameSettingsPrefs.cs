@@ -17,8 +17,5 @@ public static class GameSettingsPrefs
         }
     }
 
-    public static bool HasLanguageCode()
-    {
-        return PlayerPrefs.HasKey(LanguageCodeKey);
-    }
+
 }

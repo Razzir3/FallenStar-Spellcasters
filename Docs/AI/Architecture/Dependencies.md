@@ -1,7 +1,7 @@
 # Class Dependencies and Regression Points
 
-- **Updated:** 2026-10-20 (TASK-N8 refresh). First audit: 2026-10-18.
-- **Code baseline:** commit `391e079` **plus the uncommitted working tree** with tasks L1, L2/N31, N30, N17, L6, L7, L9, L10 and N28. Claude has not reviewed that working tree yet.
+- **Updated:** 2026-10-23 (header refresh, Issue Report #13). Full refresh: 2026-10-20 (TASK-N8). First audit: 2026-10-18. Each task since then updated the sections it touched.
+- **Code baseline:** commit `6d89a09` **plus the uncommitted working tree** with N54–N58 and N32–N35, reviewed in [Issue Report #13](../Reports/2026-10-23_IssueReport-13.md). The owner's manual checklist for it is pending.
 - **Method:** static reading. Every edge below was found as a real call, field access or event subscription in code, not inferred from names.
 - Tags are defined in [Architecture.md](Architecture.md).
 
@@ -262,7 +262,7 @@ Each item is a place where a change is likely to break another system. These are
 |---|---|---|---|
 | RP1 | `GamePhase` enum | Sent as an int in a NetworkVariable. Used by `PlayerUI`, `GameAnnouncerUI` (its `switch` **throws** on unknown values), `HandleConfirmTurn` / `IsConfirmForCurrentPhase`, `LeaveMatchUI`, `Can*`, and the `Phase.*` keys | Append values only. Update the announcer switch and add keys in en/ru/ja. |
 | RP2 | `HandleConfirmTurn` multiplexing | One RPC means "confirm selection", "end turn" or "confirm respawn". N21 tags it with the intended phase and drops mismatches. | A confirm sent just before a phase change is dropped; the player presses again |
-| RP3 | `CardControllPackage` with 4 fixed targets | `CreateEmpty` makes 4 slots. The server requires slots ≥ activities, and `CardData.OnValidate` keeps exactly 4 activities. | Changing the activity count changes validation |
+| RP3 | `CardControllPackage` with 4 fixed targets | `MaxTargets = 4`; `CreateEmpty` makes 4 slots. The reader rejects counts outside 0–4 without reading targets; the server handler rejects null, empty or oversized lists. The loop requires slots ≥ activities, and `CardData.OnValidate` keeps exactly 4 activities. | Changing the activity count must also change `MaxTargets` and validation (N58 / GL5) |
 | RP4 | `SendCardDataClientRpc` → `RefreshAllSessions` / `OnCardDataReceived` | Every reveal rebuilds all world views; missing local views rebuild the hand | Data/list ordering, selection colours |
 | RP5 | `MultiplayerManager` ↔ `NetworkManager` recreation | Subscriptions must be redone for every new NetworkManager. Other classes subscribe on their own. | Host → leave → host again; join → leave → join |
 | RP6 | Disconnect and result chains | `HandleLostConnectionToHost`, `Disconnect`, `LeaveMatchToResultScene` and `CleanupAfterDisconnect` share flags and call `ClearupAfterDisconnect` / `ClearSessionOnDisconnect` around `Shutdown()` | Client leave, host leave, forfeit in each phase, connection loss, app quit |
@@ -274,9 +274,10 @@ Each item is a place where a change is likely to break another system. These are
 | RP12 | NetworkVariable layout and RPC table | Adding or removing NetworkVariables or RPCs on a NetworkBehaviour changes what peers expect | Both peers on the same build (§2.2) |
 | RP13 | Lobby request rate | Lobby calls are rate-limited per player. `RefreshCurrentLobby` throttles `GetLobbyAsync` to one request at a time, 1.5 s apart (N30). | Any new `GetLobbyAsync` caller must go through `RefreshCurrentLobby` |
 | RP14 | Debug flags (L9) | Release builds rely on `DebugModeGuard.Allow` as the first statement in `Awake` | A new class with a `m_debugMode` flag must call it too |
-| RP15 | Change-only UI (L6) | `GameAnnouncerUI`, `PlayerUI` mana labels and `LobbyControlUI` skip work when their cached state is unchanged | A new displayed value must be added to the cached state, or it won't refresh |
+| RP15 | Change-only UI (L6 / N35) | `GameAnnouncerUI`, `PlayerUI` HP/lives/mana labels and `LobbyControlUI` skip work when their cached state is unchanged; health caches invalidate on locale, enable and local cleanup | A new displayed value or alive/dead state must be included in cache invalidation |
 | RP16 | Dynamic font asset (N28) | Any Editor run with new text changes the asset | Restore it before committing |
-| RP17 | Identifier typos (per `AGENTS.md`: report, don't rename) | `CardControllPackage`, `PlayerCardfWorldArea.cs`, `SetOponent` / `m_currentOponentNetworkObjectId`, `CheckActiveTaergetSelection`, `SingInAnonymous` / `SingOut` / `m_isSingingIn`, `HearthbeatLobby`, `MovePlayeToSpawnPoint`, `ClearupAfterDisconnect`, `DeffenceSpell`, `KnowLobbies`, `m_bootsTrap`, `_teamAssing`, `m_phaseAnouncementText`, `#region Valiable`, `ConfirmSendButtonUI1`, `m_startHandCards` (really the per-round draw count) | Any rename breaks serialized references, `nameof(HearthbeatLobby)` in `InvokeRepeating`, and the public API |
+| RP17 | Identifier typos (per `AGENTS.md`: report, don't rename) | `CardControllPackage`, `PlayerCardfWorldArea.cs`, `SetOponent` / `m_currentOponentNetworkObjectId`, `CheckActiveTaergetSelection`, `SingInAnonymous` / `SingOut` / `m_isSingingIn`, `HearthbeatLobby`, `MovePlayeToSpawnPoint`, `ClearupAfterDisconnect`, `DeffenceSpell`, `m_bootsTrap`, `_teamAssing`, `m_phaseAnouncementText`, `#region Valiable`, `ConfirmSendButtonUI1`, `m_startHandCards` (really the per-round draw count) | Any rename breaks serialized references, `nameof(HearthbeatLobby)` in `InvokeRepeating`, and the public API |
+| RP18 | World-space canvases on board objects (N54) | `PlayerSession.Update` treats any UI hit as a HUD click and skips its board raycast | Keep board canvases free of `GraphicRaycaster` components and raycast-target graphics; the screen-space HUD must still block clicks |
 
 ---
 
@@ -284,7 +285,7 @@ Each item is a place where a change is likely to break another system. These are
 
 1. NGO behaviour with the nested `SpawnPoint` NetworkObject (RP10, U2). No warning in any log so far.
 2. The NGO `NetworkSceneManager.Dispose` NRE on Play Mode stop, Editor quit or domain reload (U9). It happens inside NGO during teardown and is probably harmless.
-3. The open manual checks of tasks L1–N28: countdown agreement, lobby request spacing over several create/join/start cycles, card text on a locale switch, and ja/ru glyphs in the match HUD in a player build ([implementation report §6](../Reports/2026-10-20_L1_L2_N31_N30_N17_L6_L7_L9_L10_N28_Implementation.md#6-manual-unity-editor-verification-steps)).
+3. The owner's manual checklist for N54–N58 and N32–N35 ([Issue Report #13](../Reports/2026-10-23_IssueReport-13.md) §5). The L1–N28 checks passed in the 2026-10-20 checklists (Issue Report #8).
 
 ## History
 

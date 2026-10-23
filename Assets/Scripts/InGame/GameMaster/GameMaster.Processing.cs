@@ -110,10 +110,6 @@ public partial class GameMaster
                 {
                     _result = true;
                 }
-                else
-                {
-                    Debug.Log("Error");
-                }
                 break;
             case CardTargetType.SelfBlock:
                 _result = _targetBlock != null &&
@@ -135,8 +131,8 @@ public partial class GameMaster
     //todo for all
     private void ProcessActivity(CardActivity activity, ulong targetID, ulong cardOwnerId)
     {
-        Debug.Log("Process called");
-        PlayerController _ownerPlayer = GetSessionByID(cardOwnerId).GetCharacter();
+        if (m_debugMode)
+            Debug.Log("Process called");
         PlayerController _targetCharacter = null;
         var _targetSession = GetSessionByID(targetID);
         if (_targetSession != null)

@@ -226,7 +226,8 @@ public class PlayerSession : NetworkBehaviour
             selectedCardsToDiscardID,
             respawnBlockNetworkId
         );
-        Debug.Log("Rpc called");
+        if (m_debugMode)
+            Debug.Log("Rpc called");
     }
 
     [ClientRpc]
@@ -371,14 +372,7 @@ public class PlayerSession : NetworkBehaviour
         m_handCards.Add(card.NetworkObjectId);
     }
 
-    public void RemoveCard(ulong cardNetworkObjectId)
-    {
-        if (!IsServer)
-            return;
 
-        if (m_handCards.Contains(cardNetworkObjectId))
-            m_handCards.Remove(cardNetworkObjectId);
-    }
 
     public IEnumerable<NetworkCard> GetHandCards()
     {
@@ -580,20 +574,7 @@ public class PlayerSession : NetworkBehaviour
         }
     }
 
-    public void ClearBlocks()
-    {
-        foreach (var block in m_blocks)
-        {
-            if (block == null)
-                continue;
 
-            if (block.NetworkObject != null &&
-                block.NetworkObject.IsSpawned)
-            {
-                block.NetworkObject.Despawn(true);
-            }
-        }
-    }
     public void SetSpawnPoint(SpawnPoint point)
     {
         m_spawnPoint = point;
@@ -745,21 +726,7 @@ public class PlayerSession : NetworkBehaviour
         SelectObject();
     }
 
-    private void ClearHand()
-    {
-        foreach (var cardId in m_handCards)
-        {
-            if (NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(cardId, out NetworkObject _obj))
-            {
-                NetworkCard card = _obj.GetComponent<NetworkCard>();
-                if (card != null)
-                {
-                    card.NetworkObject.Despawn(true);
-                }
-            }
-        }
-        m_handCards.Clear();
-    }
+
 
     public void ClearSession()
     {

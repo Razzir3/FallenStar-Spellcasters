@@ -6,7 +6,12 @@ public class ConfirmSendButtonUI1 : MonoBehaviour
     public void TryConfirmSend()
     {
         if (m_localSession == null)
-            m_localSession = SessionManager.Instance.LocalPlayer;
+            m_localSession = SessionManager.Instance != null ? SessionManager.Instance.LocalPlayer : null;
+        if (m_localSession == null)
+        {
+            Debug.LogWarning("TryConfirmSend ignored: local PlayerSession is null.");
+            return;
+        }
         m_localSession.TryHandlePackage();
     }
 }

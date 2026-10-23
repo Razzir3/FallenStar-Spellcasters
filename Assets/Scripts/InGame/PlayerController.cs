@@ -18,7 +18,6 @@ using UnityEngine.InputSystem;
         public NetworkVariable<int> m_hpCurrent = new NetworkVariable<int>(1, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
 
-        public NetworkVariable<bool> m_isDead = new NetworkVariable<bool>(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
         public NetworkVariable<int> m_playerTeam = new NetworkVariable<int>(-1, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
@@ -36,7 +35,6 @@ using UnityEngine.InputSystem;
 
 
     //ToDo
-    //private bool m_deadProccessed = false;
 
     public bool m_debugMode = false;
 
@@ -67,7 +65,7 @@ using UnityEngine.InputSystem;
 
             if(m_debugMode)
             {
-                Debug.Log("Spawned. Owner :{IsOwner} ClientId : {OwnerClientId}");
+                Debug.Log($"Spawned. Owner :{IsOwner} ClientId : {OwnerClientId}");
             }
 
             if(IsOwner)
@@ -115,10 +113,8 @@ using UnityEngine.InputSystem;
             m_ponyColorScript.SetMaterials(_index, _index);
             m_defaultColor = m_meshRenderer.material.color;
         }
-        public float GetCurrentSpeed()
-        {
-            return m_moveSpeedCurrent.Value;
-        }
+
+
         public int GetCurrentHP()
         {
             return (int)m_hpCurrent.Value;
@@ -135,17 +131,6 @@ using UnityEngine.InputSystem;
     }
         private void Update()
         {
-            //ToDo
-            /*
-            if(m_deadProccessed)
-            {
-                Destroy(gameObject);
-            }
-            if(m_isDead.Value)
-            {
-                m_deadProccessed = true;
-            }
-            */
             if (!IsOwner)
             {
                 return;

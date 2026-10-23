@@ -62,13 +62,7 @@ public class MultiplayerManager : MonoBehaviour
     private const float m_clientConnectTimeout = 10f;
     private const float m_startGameConnectTimeout = 10f;
 
-    public IReadOnlyList<Lobby> KnowLobbies
-    {
-        get
-        {
-            return m_knowLobbies;
-        }
-    }
+
 
 
     public static MultiplayerManager Instance;
@@ -762,54 +756,60 @@ public class MultiplayerManager : MonoBehaviour
                 await LobbyService.Instance.QueryLobbiesAsync(
                     _options);
 
-            Debug.Log(
-                "FindAvailableLobbies: query result count = " +
-                _response.Results.Count);
+            if (m_debugMode)
+                Debug.Log(
+                    "FindAvailableLobbies: query result count = " +
+                    _response.Results.Count);
 
             foreach (Lobby _lobby in _response.Results)
             {
                 if (_lobby == null)
                     continue;
 
-                Debug.Log(
-                    "Found lobby before filters: " +
-                    _lobby.Name +
-                    " Players: " +
-                    _lobby.Players.Count +
-                    "/" +
-                    _lobby.MaxPlayers +
-                    " Id: " +
-                    _lobby.Id);
+                if (m_debugMode)
+                    Debug.Log(
+                        "Found lobby before filters: " +
+                        _lobby.Name +
+                        " Players: " +
+                        _lobby.Players.Count +
+                        "/" +
+                        _lobby.MaxPlayers +
+                        " Id: " +
+                        _lobby.Id);
 
                 if (_lobby.MaxPlayers != m_maxLobbyPlayers)
                 {
-                    Debug.Log(
-                        "Skip lobby. Wrong MaxPlayers: " +
-                        _lobby.MaxPlayers);
+                    if (m_debugMode)
+                        Debug.Log(
+                            "Skip lobby. Wrong MaxPlayers: " +
+                            _lobby.MaxPlayers);
 
                     continue;
                 }
 
                 if (_lobby.Players.Count >= m_maxLobbyPlayers)
                 {
-                    Debug.Log(
-                        "Skip lobby. Lobby is full.");
+                    if (m_debugMode)
+                        Debug.Log(
+                            "Skip lobby. Lobby is full.");
 
                     continue;
                 }
 
                 if (_lobby.Data == null)
                 {
-                    Debug.Log(
-                        "Skip lobby. Data is null.");
+                    if (m_debugMode)
+                        Debug.Log(
+                            "Skip lobby. Data is null.");
 
                     continue;
                 }
 
                 if (!_lobby.Data.ContainsKey("joinCode"))
                 {
-                    Debug.Log(
-                        "Skip lobby. No joinCode.");
+                    if (m_debugMode)
+                        Debug.Log(
+                            "Skip lobby. No joinCode.");
 
                     continue;
                 }
@@ -817,23 +817,26 @@ public class MultiplayerManager : MonoBehaviour
                 if (_lobby.Data.ContainsKey("gameMode") &&
                     _lobby.Data["gameMode"].Value != "TwoPlayers")
                 {
-                    Debug.Log(
-                        "Skip lobby. Wrong gameMode: " +
-                        _lobby.Data["gameMode"].Value);
+                    if (m_debugMode)
+                        Debug.Log(
+                            "Skip lobby. Wrong gameMode: " +
+                            _lobby.Data["gameMode"].Value);
 
                     continue;
                 }
 
                 m_knowLobbies.Add(_lobby);
 
-                Debug.Log(
-                    "Lobby added to known list: " +
-                    _lobby.Name);
+                if (m_debugMode)
+                    Debug.Log(
+                        "Lobby added to known list: " +
+                        _lobby.Name);
             }
 
-            Debug.Log(
-                "FindAvailableLobbies: final known count = " +
-                m_knowLobbies.Count);
+            if (m_debugMode)
+                Debug.Log(
+                    "FindAvailableLobbies: final known count = " +
+                    m_knowLobbies.Count);
         }
         catch (LobbyServiceException e)
         {
@@ -1456,9 +1459,21 @@ public class MultiplayerManager : MonoBehaviour
             yield break;
         }
 
-        GameMaster.Instance.SpawnPlayers();
-
-        GameMaster.Instance.StartNewGame();
+        try
+        {
+            if (!GameMaster.Instance.SpawnPlayers())
+            {
+                AbortGameStart("spawn_failed");
+                yield break;
+            }
+            GameMaster.Instance.StartNewGame();
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogException(e);
+            AbortGameStart("match_start_exception");
+            yield break;
+        }
     }
     #endregion
 
@@ -1538,8 +1553,10 @@ public class MultiplayerManager : MonoBehaviour
     }
     void SetLobbyCode()
     {
-        Debug.Log("SetLobbyCode");
-        Debug.Log("Lobby code: " + m_currentLobby.LobbyCode);
+        if (m_debugMode)
+            Debug.Log("SetLobbyCode");
+        if (m_debugMode)
+            Debug.Log("Lobby code: " + m_currentLobby.LobbyCode);
     }
 
     public bool IsCurrentLobbyFull()

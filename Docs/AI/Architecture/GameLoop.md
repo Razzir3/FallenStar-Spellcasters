@@ -1,7 +1,7 @@
 # Game Loop, Phases and Match State
 
-- **Updated:** 2026-10-20 (TASK-N8 refresh). First audit: 2026-10-18.
-- **Code baseline:** commit `391e079` **plus the uncommitted working tree** with tasks L1, L2/N31, N30, N17, L6, L7, L9, L10 and N28 ([implementation report](../Reports/2026-10-20_L1_L2_N31_N30_N17_L6_L7_L9_L10_N28_Implementation.md)). Claude has not reviewed that working tree yet.
+- **Updated:** 2026-10-23 (header refresh, Issue Report #13). Full refresh: 2026-10-20 (TASK-N8). First audit: 2026-10-18. Each task since then updated the sections it touched.
+- **Code baseline:** commit `6d89a09` **plus the uncommitted working tree** with N54–N58 and N32–N35, reviewed in [Issue Report #13](../Reports/2026-10-23_IssueReport-13.md). The owner's manual checklist for it is pending.
 - **Method:** static code reading. Runtime evidence is named where it exists. Nothing here was run for this update.
 - Tags **[Confirmed] / [Unfinished] / [Unknown] / [Risk]** are defined in [Architecture.md](Architecture.md).
 - File and method names are given instead of line numbers.
@@ -57,7 +57,7 @@
 2. It waits up to 10 s until there are 2 sessions.
    - Both waits abort through `AbortGameStart`: `session_manager_missing` or `not_enough_sessions` on timeout, `player_left_before_start` as soon as the NetworkManager is gone, stops listening or has fewer than 2 clients.
    - The client count is checked again right before spawning.
-3. `GameMaster.SpawnPlayers()`. For each session with `SessionRole.Player`:
+3. `GameMaster.SpawnPlayers()` first checks every player's team spawn point before spawning anything, returning `false` if one is missing. The start aborts through `AbortGameStart("spawn_failed")`; an exception from spawning or `StartNewGame` is logged and aborts with `match_start_exception` (N55). For each session with `SessionRole.Player`:
    - `CreateBlock`: 25 blocks (5×5, 3 m apart) below the team's scene `SpawnPoint`. Each block is spawned with `SpawnWithOwnership(client, true)`, then `BlockController.Initialize` and `PlayerSession.AddBlock` (which sets the child `SpawnPoint` team).
    - `SpawnCharacter`: a random free scene `SpawnPoint` for the team, then `SpawnAsPlayerObject(client)`. The server's `PlayerController.OnNetworkSpawn` → `Init` sets HP 100/100 and speed 3 (N22). Then `SessionObjectId`, `PlayerController.Initialize`, `CharacterObjectId`, `SetSpawnPoint`, `SetCharacter`, and `MovePlayeToSpawnPoint` (3 units up).
    - Then `BindPlayerCardWorldAreas`, and `MultiplayerManager.m_currentMultiplayerStatus = InGameStatus`.
@@ -208,7 +208,7 @@ Each frame, until the timeout or until the active player has confirmed with an e
 | Debug damage (Space) | `SendMovementInput` sets `s_hpDelta = -10`. Compiled only in the Editor and development builds. | same | `HPDeltaProcessing`, only in the Editor or development builds with `m_debugMode` on | Debug only |
 | Select cards | `PlayerUI.OnCardClicked` (LMB) / `OnCardAlterClicked` (RMB) → `PlayerSession.SelectCardToPlay` / `SelectCardToDiscard` | — | — | Local: phase, input lock, card data, mana |
 | Confirm selection | `PlayerUI.ConfirmTurn` → `PlayerSession.ConfirmTurn` | `ConfirmTurnServerRpc(intendedPhase, play[], discard[], respawnBlock)` | `HandleConfirmTurn` → `HandleConfirmSelectionTurn` (§3.4) | Sender owns the session; the phase matches (below) |
-| Target a played card | World click → `PlayerSession.SelectObject` (raycast) → `ConfirmTargetButtonUI.ConfirmSelect` → `TryConfirmTarget` (fills `m_currentCardControllPackage`) | — | — | Local; `AutoSelectTarget` fills self/opponent-only cards |
+| Target a played card | Pick the played card in the **HUD row** (`PlayerUI.OnCardClicked` outside Card selection → `SelectCard` → `PlayerSession.SetSelectedCard`). Then a world click on the target → `PlayerSession.SelectObject` (raycast; a click on a table card only opens its big card and selects nothing) → `ConfirmTargetButtonUI.ConfirmSelect` → `TryConfirmTarget` (fills `m_currentCardControllPackage`) | — | — | Local; `AutoSelectTarget` fills self/opponent-only cards |
 | Cast a card | `ConfirmSendButtonUI1.TryConfirmSend` → `PlayerSession.TryHandlePackage` → `CheckPackage` | `CardInputServerRpc(CardControllPackage)` | `HandleCardControlPackage` (enqueue) → `PlayerActionPhase` | PlayerAction, sender is the active player, card owner (`ForeignCardPackage` recorded), card on the board; then §3.5 |
 | End turn | `PlayerUI.ConfirmTurn` during PlayerAction | `ConfirmTurnServerRpc` | `HandlePlayerActionConfirm` sets `m_activePlayerConfirmedAction` | Must be the active player |
 | Respawn block | `ConfirmTargetButtonUI` during RespawnWait → `TryConfirmRespawnBlock`, then `ConfirmTurn` | `ConfirmTurnServerRpc(…, blockId)` | `HandlePlayerRespawnPoint` | The waiting player; own, spawned block with a spawn point |
@@ -268,17 +268,16 @@ A mismatch is logged in debug mode and ignored, with no suspicion and no mana fe
 
 | # | Risk | Location | Consequence |
 |---|---|---|---|
-| GL1 | `ProcessActivity` calls `GetSessionByID(cardOwnerId).GetCharacter()` without a null check, and never uses the result (N32) | `GameMaster.Processing.cs`, `ProcessActivity` | Latent: `CheckActivity` has just checked the owner, and a disconnect stops the loop before the session despawns. If it ever happened, `RunGuarded` would abort the match (`loop_exception`); no freeze. |
 | GL2 | One RPC means "confirm selection", "end turn" or "confirm respawn". N21 drops stale confirms, but a confirm sent just before a phase change is lost. | `HandleConfirmTurn` | The player has to press again (the owner chose "ignore", 2026-10-20) |
 | GL3 | `HandlePlayerActionConfirm` compares `PlayerSession` with a `NetworkBehaviourReference` through an implicit conversion | `GameMaster.PackageManaging.cs` | **[Unknown]**: equality semantics not checked at runtime |
 | GL4 | Falling after a block is destroyed depends on physics and the lava trigger geometry | `UpdateBlockHp`, `LavaKillZone` | **[Unknown]**: a player could stand on nothing |
-| GL5 | The 4-slot target list and `CardData.OnValidate` (always 4 activities) are coupled to the server's "slots ≥ activities" check | `CardControllPackage.CreateEmpty`, `CardData.OnValidate`, `PlayerActionPhase` | Changing the activity count changes validation |
+| GL5 | `CardControllPackage.MaxTargets = 4`, its bounded reader and handler, and `CardData.OnValidate` (always 4 activities) are coupled to the loop's "slots ≥ activities" check | `CardControllPackage`, `HandleCardControlPackage`, `CardData.OnValidate`, `PlayerActionPhase` | Changing the activity count must also change the target limit and validation |
 
 ## 7. Unknown, needs Play Mode
 
 - Physics of falling after a block despawns, and the lava trigger (GL4).
 - Timing between `SendCardDataClientRpc` and the client-side spawn of the card ("NetworkCard … was not found" warning path).
-- The tasks L1–N28 in the working tree: countdown agreement between peers (±1 s), respawn resume, per-frame cost, and locale switching of card texts. These are the open manual checks in the [implementation report](../Reports/2026-10-20_L1_L2_N31_N30_N17_L6_L7_L9_L10_N28_Implementation.md#6-manual-unity-editor-verification-steps).
+- The owner's manual checklist for N54–N58 and N32–N35 ([Issue Report #13](../Reports/2026-10-23_IssueReport-13.md) §5). The L1–N28 checks (countdown agreement, respawn resume, card texts on a locale switch) passed in the 2026-10-20 checklists (Issue Report #8).
 - `GameMasterPrefab.prefab` stores none of the Timing, Movement or GameRules fields, so the C# defaults above are the real values. It stores `m_debugMode: 1`; in release builds that flag is forced off (L9). **[Confirmed]**
 
 ---
@@ -286,6 +285,8 @@ A mismatch is logged in debug mode and ignored, with no suspicion and no mana fe
 ## History
 
 Items from earlier versions of this document that are now resolved:
+
+- **N32:** the unused owner-character lookup in `ProcessActivity` was removed. Activity validation and Damage / Heal / DrawCard processing are unchanged.
 
 - **Result flow:** "End of match → Result: not implemented" was resolved by H5 (`EndMatch`, `MatchEndedClientRpc`, `ResultScene`). Forfeit on disconnect was resolved by H6, and the Leave match button by N19.
 - **Loop exceptions** used to stop `GameLoop` for good. H1 added `RunGuarded`, which aborts the match instead.

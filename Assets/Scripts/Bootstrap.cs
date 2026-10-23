@@ -110,8 +110,6 @@ public class Bootstrap : MonoBehaviour
         m_networkManagerInstance =
             NetworkManager.Singleton.gameObject;
 
-        Debug.Log(
-            "Bootstrap: NetworkManager recreated.");
     }
 
     #endregion

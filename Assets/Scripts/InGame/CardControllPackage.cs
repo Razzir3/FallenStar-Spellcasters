@@ -4,6 +4,7 @@ using System.Collections.Generic;
 
 public struct CardControllPackage : INetworkSerializable
 {
+    public const int MaxTargets = 4;
     public ulong CardNetworkObjectId;
     public List<ulong> TargetNetworkObjectId;
 
@@ -28,6 +29,11 @@ public struct CardControllPackage : INetworkSerializable
 
         if (serializer.IsReader)
         {
+            if (_count < 0 || _count > MaxTargets)
+            {
+                TargetNetworkObjectId = new List<ulong>();
+                return;
+            }
             TargetNetworkObjectId = new List<ulong>(_count);
             for (int i = 0; i < _count; i++)
             {
@@ -58,11 +64,14 @@ public struct CardControllPackage : INetworkSerializable
 
     public static CardControllPackage CreateEmpty(ulong cardNetworkObjectId)
     {
+        var _targets = new List<ulong>(MaxTargets);
+        for (int i = 0; i < MaxTargets; i++)
+            _targets.Add(0);
         return new CardControllPackage
         {
             CardNetworkObjectId = cardNetworkObjectId,
 
-            TargetNetworkObjectId = new List<ulong> { 0, 0, 0, 0 }
+            TargetNetworkObjectId = _targets
         };
     }
 }

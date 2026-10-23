@@ -55,16 +55,7 @@ public class CardPreviewController : MonoBehaviour
         return false;
     }
 
-    public void TogglePreview(NetworkCard networkCard, Vector2 screenPosition)
-    {
-        if (m_currentPreview != null)
-        {
-            HidePreview();
-            return;
-        }
 
-        ShowPreview(networkCard, screenPosition);
-    }
     public void ShowPreview(NetworkCard networkCard, Vector2 screenPosition)
     {
         if (networkCard == null) { return; }

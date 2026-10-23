@@ -53,7 +53,6 @@ public partial class GameMaster : NetworkBehaviour
 
     [SerializeField] private NetworkCard m_cardPrefab;
     [SerializeField] private CardDatabase m_cardDatabase;
-    [SerializeField] private GameObject m_cardViewWorldPrefab;
 
     [SerializeField]
     private PlayerCardWorldArea[] m_playerCardWorldAreas;
@@ -101,8 +100,6 @@ public partial class GameMaster : NetworkBehaviour
     private bool m_isResolvingCards;
     private bool m_isWaitingRespawn;
 
-    private Coroutine m_gameLoopCoroutine;
-    private Coroutine m_phasesTimerCoroutine;
 
     private List<PlayerSession> m_turnOrder = new();
 
@@ -623,7 +620,8 @@ public partial class GameMaster : NetworkBehaviour
         m_gameCoroutine =
             StartCoroutine(RunGuarded(GameLoop()));
 
-        Debug.Log(
-            "GameMaster: new GameLoop started.");
+        if (m_debugMode)
+            Debug.Log(
+                "GameMaster: new GameLoop started.");
     }
 }

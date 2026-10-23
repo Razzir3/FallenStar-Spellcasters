@@ -496,10 +496,6 @@ PrefabInstance:
       propertyPath: m_enableAutoSizing
       value: 1
       objectReference: {fileID: 0}
-    - target: {fileID: 6674156206700678496, guid: 97d94c31dec48924e9ba796668aef5e0, type: 3}
-      propertyPath: m_timeText
-      value: 
-      objectReference: {fileID: 0}
     - target: {fileID: 8978094949923748527, guid: 97d94c31dec48924e9ba796668aef5e0, type: 3}
       propertyPath: m_Color.a
       value: 1

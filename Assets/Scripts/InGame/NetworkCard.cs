@@ -68,24 +68,6 @@ public class NetworkCard : NetworkBehaviour
     #endregion
 
 
-    #region Rpc
-    [ServerRpc]
-    public void SetFaceUpServerRpc(bool value)
-    {
-        m_isFaceUp.Value = value;
-    }
-    [ServerRpc]
-    public void SetRotatedServerRpc(bool value)
-    {
-        m_isRotated.Value = value;
-    }
-    [ServerRpc]
-    public void DespawnCardServerRpc()
-    {
-        DespawnCard();
-    }
-    #endregion
-
     #region Setter
     public void SetOwner(ulong ownerId)
     {
@@ -128,17 +110,8 @@ public class NetworkCard : NetworkBehaviour
         m_currentView = null;
         m_additionalView = null;
     }
-    public void DespawnCard()
-    {
-        if (!IsServer)
-            return;
-        if(m_currentView != null)
-        {
-            Destroy(m_currentView.gameObject);
-            m_currentView = null;
-        }
-        NetworkObject.Despawn(true);
-    }
+
+
 
     public bool CheckActiveTaergetSelection()
     {
@@ -161,7 +134,6 @@ public class NetworkCard : NetworkBehaviour
 
     public void RepairCardData(string cardId)
     {
-        Debug.Log("RepairCalled");
         if (GameMaster.Instance == null)
         {
             Debug.LogWarning("RepairCardData: GameMaster.Instance is null.");

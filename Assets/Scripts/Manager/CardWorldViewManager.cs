@@ -36,8 +36,9 @@ public class CardWorldViewManager : MonoBehaviour
     private void Awake()
     {
         m_debugMode = DebugModeGuard.Allow(m_debugMode);
-        Debug.Log(
-            $"CardWorldViewManager Awake called on {gameObject.name}.");
+        if (m_debugMode)
+            Debug.Log(
+                $"CardWorldViewManager Awake called on {gameObject.name}.");
 
         if (Instance != null && Instance != this)
         {
@@ -53,8 +54,9 @@ public class CardWorldViewManager : MonoBehaviour
 
     private void Start()
     {
-        Debug.Log(
-            $"CardWorldViewManager Start called on {gameObject.name}.");
+        if (m_debugMode)
+            Debug.Log(
+                $"CardWorldViewManager Start called on {gameObject.name}.");
 
         FindAreas();
 

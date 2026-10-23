@@ -1,11 +1,11 @@
 # FallenStar – Spellcasters: Architecture Overview
 
-- **Updated:** 2026-10-20 (TASK-N8 refresh). First audit: 2026-10-18.
-- **Code baseline:** commit `391e079` **plus the uncommitted working tree** with tasks L1, L2/N31, N30, N17, L6, L7, L9, L10 and N28 ([implementation report](../Reports/2026-10-20_L1_L2_N31_N30_N17_L6_L7_L9_L10_N28_Implementation.md)). Claude has not reviewed that working tree yet.
-- **Method:** static reading of every C# file under `Assets/Scripts` (53 files, about 12.1k lines), plus YAML checks of scenes, prefabs, build settings and localization tables.
+- **Updated:** 2026-10-23 (header refresh, Issue Report #13). Full refresh: 2026-10-20 (TASK-N8). First audit: 2026-10-18. Each task since then updated the sections it touched.
+- **Code baseline:** commit `6d89a09` **plus the uncommitted working tree** with N54–N58 and N32–N35. Claude reviewed that working tree in [Issue Report #13](../Reports/2026-10-23_IssueReport-13.md); the owner's manual checklist for it is pending.
+- **Method:** static reading of every C# file under `Assets/Scripts` (56 files, about 12.6k lines), plus YAML checks of scenes, prefabs, build settings and localization tables.
 - **Runtime evidence** (not re-run for this update):
-  - The owner's Windows player build of `b7e7b91` ran two matches, the Settings scene and a saved language ([review](../Reviews/2026-10-20_ManualChecks-Report6-7_Review.md)).
-  - Codex's release build of the current working tree succeeded with 0 errors and 0 warnings, and its menus rendered en/ru/ja (implementation report §4).
+  - The owner's two-Editor and player-build checklists up to 2026-10-22 (Issue Report #12 §1): matches as host and as client, the Settings scene, all three languages.
+  - Codex's release build of the current working tree succeeded with 0 errors (report `2026-10-22_N32-N35_N54-N58_Implementation.md` §4).
 
 Legend used in all `Docs/AI/Architecture/*.md` files:
 
@@ -74,7 +74,7 @@ Assets/Scripts/
 Other folders:
 - `Assets/Card/`: `CardDataBase.asset` lists 4 cards (Fireball, Iceshard, HealingHooves, Clarity). `Data/CardData.asset` is a placeholder that isn't in the database.
 - `Assets/Localization/`: tables and locales.
-- `Assets/Prefab/`: network and UI prefabs. `BootsTrap.prefab` and `MultiplayerManager.prefab` are old copies; the live ones are on `AppRoot` in `LoginScene`.
+- `Assets/Prefab/`: network and UI prefabs. Bootstrap and MultiplayerManager live on `AppRoot` in `LoginScene`; their unused legacy prefab copies were removed by N33.
 - `build/` (git-ignored): Codex's verification output (`build/task-*-verification/`).
 - The owner's player builds go to `../Spellcasters.Build/`.
 
@@ -120,7 +120,7 @@ Other folders:
   - `LeaveMatchUI`, `LobbyControlUI`, `LobbyListUI`, `PlayerUI`, `ResultMenuUI`
 - The first statement of each `Awake` is `m_debugMode = DebugModeGuard.Allow(m_debugMode)`. In the Editor and in development builds the Inspector value is kept; in release builds it's always `false`.
 - Several prefabs store `m_debugMode: 1` (`GameMasterPrefab`, `SessionManager`, `PlayerSessionPrefab`, `CardWorldManagerPrefab`), so Editor runs log verbosely.
-- Some `Debug.Log` lines aren't behind the flag and still appear in release builds, for example "Process called" and the lobby search logs (N34).
+- Release builds print no debug `Log` lines; warnings and errors remain (N34). HUD HP/lives formatting, like mana, runs only when the value, alive/dead state or locale changes (N35).
 
 ---
 
@@ -140,7 +140,7 @@ LobbyScene / GameScene ──(Leave lobby, AbortMatch or connection loss → Cle
 ```
 
 - Offline loads use `SceneManager.LoadScene`. The game scene uses `NetworkManager.SceneManager.LoadScene(..., Single)`, so clients follow the host.
-- `SceneFlowManager` keeps scene names in serialized strings (`m_loginSceneName` … `m_resultSceneName`).
+- `SceneFlowManager` keeps scene names in serialized strings (`m_mainMenuScene` … `m_resultSceneName`). Nothing loads `LoginScene` by name: it's the first scene in Build Settings, and `LoginScene.unity` still stores the removed `m_loginSceneName` value as harmless orphan YAML (N33).
 - A second lobby and match after Result → main menu work (U13, report #6).
 
 ---
@@ -270,7 +270,6 @@ These are the open structural risks. Each needs its own task before anything cha
 | A3 | Team identity is the slot index. `SessionManager` has 4 slots, but the scene supports only teams 0 and 1. | `GetFreeSlot`, `SpawnPoint.m_teamId`, `PlayerCardWorldArea.m_sessionSearchId` |
 | A4 | Nested NetworkObject: `SpawnPoint.prefab` has a `NetworkObject` and is a child of `BlockBody` | U2: no NGO warning in any log so far. **[Unknown]** |
 | A5 | Disconnect cleanup runs `GameMaster.ClearupAfterDisconnect` twice per path (`HandleLostConnectionToHost` / `ShutdownHostInternal` / `DisconnectClientInternal`, then `CleanupAfterDisconnect`) | Each step is safe to repeat; all despawns are server-only |
-| A6 | `NetworkCard` has three ServerRpcs that nothing calls (`SetFaceUpServerRpc`, `SetRotatedServerRpc`, `DespawnCardServerRpc`). Cards are server-owned, so client calls would be rejected by NGO's default ownership check. | `NetworkCard.cs`; part of N33 |
 | A7 | Dynamic font asset changes on every Editor run | N28 rule in `AGENTS.md` |
 
 ---
@@ -298,7 +297,7 @@ These are the open structural risks. Each needs its own task before anything cha
 **Unknown, needing an Editor or Play Mode check:**
 - NGO behaviour with the nested SpawnPoint NetworkObject (A4, U2)
 - the NGO `NetworkSceneManager.Dispose` NRE on Play Mode stop (U9, inside NGO, during teardown)
-- the open manual checks of tasks L1–N28 (implementation report §6)
+- the owner's manual checklist for N54–N58 and N32–N35 ([Issue Report #13](../Reports/2026-10-23_IssueReport-13.md) §5). The L1–N28 checks passed in the 2026-10-20 checklists (Issue Report #8).
 
 ---
 

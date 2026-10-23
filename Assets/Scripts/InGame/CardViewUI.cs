@@ -96,13 +96,15 @@ public class CardViewUI : CardViewBase, IPointerClickHandler, IPointerEnterHandl
         string _nameKey = m_networkCard.m_cardData != null ? m_networkCard.m_cardData.m_nameKey : "<no data>";
         if (eventData.button == PointerEventData.InputButton.Left)
         {
-            Debug.Log("Card clicked: " + _nameKey);
+            if (m_debugMode)
+                Debug.Log("Card clicked: " + _nameKey);
 
             Clicked?.Invoke(this);
         }
         if(eventData.button == PointerEventData.InputButton.Right)
         {
-            Debug.Log("Card alter clicked " + _nameKey);
+            if (m_debugMode)
+                Debug.Log("Card alter clicked " + _nameKey);
             AlterClicked?.Invoke(this);
         }
     }

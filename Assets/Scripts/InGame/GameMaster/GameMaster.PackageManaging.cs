@@ -118,6 +118,14 @@ public partial class GameMaster
                 return false;
             }
 
+            if (_package.TargetNetworkObjectId == null || _package.TargetNetworkObjectId.Count == 0 ||
+                _package.TargetNetworkObjectId.Count > CardControllPackage.MaxTargets)
+            {
+                int _count = _package.TargetNetworkObjectId != null ? _package.TargetNetworkObjectId.Count : 0;
+                Debug.LogWarning($"Card package rejected. Invalid target count: {_count}.");
+                return false;
+            }
+
             NetworkCard _card = GetCardByID(_package.CardNetworkObjectId);
 
             if (_card == null)
@@ -255,7 +263,7 @@ public partial class GameMaster
                 HandlePlayerRespawnPoint(playerSession, respawnBlockNetworkId);
                 break;
             default:
-                if (m_debugMode) Debug.Log("Confirm ignored. Current phase{ }");
+                if (m_debugMode) Debug.Log($"Confirm ignored. Current phase: {m_gamePhase.Value}");
                 break;
         }
 

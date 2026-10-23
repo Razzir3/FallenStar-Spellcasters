@@ -134,7 +134,7 @@ public class DisplaySettingsUI : MonoBehaviour
         return new Vector2Int(_display.width, _display.height);
     }
 
-    private static bool FitsDisplay(Vector2Int resolution, Vector2Int display, bool windowed)
+    private static bool FitsDisplay(Vector2Int resolution, Vector2Int display)
     {
         // Windowed callers already supply the work-area bounds, including frame allowances.
         return resolution.x <= display.x && resolution.y <= display.y;
@@ -159,7 +159,7 @@ public class DisplaySettingsUI : MonoBehaviour
         var _unique = new HashSet<Vector2Int>();
         foreach (Vector2Int _resolution in available)
         {
-            if (_resolution.x >= min.x && _resolution.y >= min.y && FitsDisplay(_resolution, display, windowed))
+            if (_resolution.x >= min.x && _resolution.y >= min.y && FitsDisplay(_resolution, display))
                 _unique.Add(_resolution);
         }
         // The actual size is a display-only exception to the filters (e.g. a command-line size).
@@ -178,13 +178,13 @@ public class DisplaySettingsUI : MonoBehaviour
         float _displayAspect = display.y > 0 ? (float)display.x / display.y : 0f;
         foreach (Vector2Int _resolution in sortedList)
         {
-            if (_resolution.x >= min.x && _resolution.y >= min.y && FitsDisplay(_resolution, bounds, true) &&
+            if (_resolution.x >= min.x && _resolution.y >= min.y && FitsDisplay(_resolution, bounds) &&
                 _resolution.y > 0 && Mathf.Abs((float)_resolution.x / _resolution.y - _displayAspect) <= _displayAspect * .01f)
                 return _resolution;
         }
         foreach (Vector2Int _resolution in sortedList)
         {
-            if (_resolution.x >= min.x && _resolution.y >= min.y && FitsDisplay(_resolution, bounds, true))
+            if (_resolution.x >= min.x && _resolution.y >= min.y && FitsDisplay(_resolution, bounds))
                 return _resolution;
         }
         return fallback;
@@ -202,7 +202,7 @@ public class DisplaySettingsUI : MonoBehaviour
         Vector2Int _target = _windowed ? _current : _display;
         List<Vector2Int> _available = BuildResolutionList(GetAvailableResolutions(), _bounds, _windowed,
             _current, new Vector2Int(m_minWidth, m_minHeight));
-        if (_windowed && !FitsDisplay(_current, _bounds, true))
+        if (_windowed && !FitsDisplay(_current, _bounds))
             _target = PickWindowedSize(_available, _bounds, _display, new Vector2Int(m_minWidth, m_minHeight), _current);
 
         Screen.SetResolution(_target.x, _target.y,
