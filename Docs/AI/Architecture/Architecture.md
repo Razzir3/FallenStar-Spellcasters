@@ -193,7 +193,7 @@ All four are Common. Activities 1–3 are `None`.
   - Mana starts at 2 and grows by 2 per round up to 20.
   - The hand limit is 10 uncommitted cards.
 - **[Confirmed] Overheal:** healing a character or a block above its maximum turns 50% of the excess into HP above the maximum. The result is rounded with `System.Convert.ToInt32`, which rounds .5 to the nearest even number. For a block, the maximum is the server-only `m_blockHPMax` from `GetMaxHP()` (H3).
-- **[Confirmed] Colours:** `PonyColorScript` uses server-written material indices set from `TeamId` (`PlayerController.ApplyMaterial`). The mane colour is never applied: `maneObject` isn't assigned in `PonyBase.prefab` (N27, parked by the owner).
+- **[Confirmed] Pony appearance (N27):** body material follows `TeamId`. Before the first character spawn, the server shuffles the five-value `ManeColor` pool and stores one distinct value per player in `GameMaster.m_maneColors`. `PlayerController.ApplyMaterial` publishes it through the existing server-written `NetworkManeColor`; clients apply that replicated value. Respawns keep the assignment, and disconnect cleanup clears it. `PonyBase.prefab` has the static PonyMane model and five separate mane materials; selection highlights and restores both body and mane.
 
 ---
 
@@ -265,6 +265,8 @@ Sources: `Assets/Localization/*`, `Bootstrap.ApplySavedLanguage`, `SettingsUI.cs
 
 ---
 
+**HUD polish (F9/F14a/N62).** Big-card previews fade with unscaled time (Inspector defaults 0.7 s in / 0.6 s out), retaining at most one current and one outgoing view. Re-entering the outgoing card reuses its view/alpha; `HidePreview(true)` and controller teardown clear both immediately. Only CanvasGroup alpha changes. Six non-raycasting `HudTextBacking` siblings follow the rendered HP/lives/mana/opponent-mana/announcer/message bounds with 16×6 padding and black 55% Images. Empty or inactive text hides its box; placement updates only when the bounds or transform changes. Send checks the opponent's action/resolution before validating the package, shows the opponent-turn hint and keeps the package (N62).
+
 ## 10. Architectural risks (current)
 
 These are the open structural risks. Each needs its own task before anything changes. Loop-specific risks are in [GameLoop.md §6](GameLoop.md#6-known-risks-in-the-loop), and change-sensitive spots in [Dependencies.md §6](Dependencies.md#6-regression-points).
@@ -297,7 +299,6 @@ These are the open structural risks. Each needs its own task before anything cha
 - `ResolveCards` stays transient and `RoundEnd` stays unused; `DrawCards` is now set during dealing (F4)
 - combo and discard actions; `All*` / `Random*` targets; `ActivityEffect`
 - `SessionRole.Spectator` (never assigned)
-- the mane colour (N27)
 
 **Unknown, needing an Editor or Play Mode check:**
 - NGO behaviour with the nested SpawnPoint NetworkObject (A4, U2)

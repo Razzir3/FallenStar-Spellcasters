@@ -12,6 +12,7 @@ public class PonyColorScript : NetworkBehaviour
     bool m_isSelected = false;
 
     [SerializeField] private Material[] m_materials;
+    [SerializeField] private Material[] m_maneMaterials;
 
     public NetworkVariable<int> NetworkBodyColor = new NetworkVariable<int>(
         0,
@@ -39,6 +40,10 @@ public class PonyColorScript : NetworkBehaviour
         if (maneObject != null)
         {
             maneRenderer = maneObject.GetComponent<Renderer>();
+        }
+        else
+        {
+            Debug.LogWarning("Mane object is not assigned in the inspector.");
         }
     }
     public void Start()
@@ -68,19 +73,19 @@ public class PonyColorScript : NetworkBehaviour
 
         if (maneRenderer != null &&
             maneMaterialIndex >= 0 &&
-            maneMaterialIndex < m_materials.Length)
+            maneMaterialIndex < m_maneMaterials.Length)
         {
             var mats = maneRenderer.materials;
 
             if (mats.Length > 0)
             {
-                mats[0] = m_materials[maneMaterialIndex];
+                mats[0] = m_maneMaterials[maneMaterialIndex];
                 if(IsServer)NetworkManeColor.Value = maneMaterialIndex;
                 maneRenderer.materials = mats;
             }
 
         }
-        else
+        else if (maneRenderer != null)
         {
             Debug.LogWarning("Invalid mane material index.");
         }
@@ -134,7 +139,7 @@ public class PonyColorScript : NetworkBehaviour
         if (maneRenderer == null)
             return;
 
-        if (materialIndex < 0 || materialIndex >= m_materials.Length)
+        if (materialIndex < 0 || materialIndex >= m_maneMaterials.Length)
             return;
 
         Material[] mats = maneRenderer.materials;
@@ -142,7 +147,7 @@ public class PonyColorScript : NetworkBehaviour
         if (mats.Length <= 0)
             return;
 
-        mats[0] = m_materials[materialIndex];
+        mats[0] = m_maneMaterials[materialIndex];
         maneRenderer.materials = mats;
     }
 

@@ -192,8 +192,7 @@ public class PlayerSession : NetworkBehaviour
             return;
         }
 
-        if ((_intended == GamePhase.PlayerAction || _intended == GamePhase.ResolveCards) &&
-            GameMaster.Instance.m_activePlayer.Value.TryGet(out PlayerSession _active) && _active != this)
+        if (IsOpponentActing())
         {
             if (IsOwner && PlayerUI.Instance != null)
                 PlayerUI.Instance.ShowOpponentTurn();
@@ -1080,10 +1079,25 @@ public class PlayerSession : NetworkBehaviour
         }
     }
 
+    // True while another player's action (or its card resolution) runs.
+    private bool IsOpponentActing()
+    {
+        GamePhase _phase = GameMaster.Instance.m_gamePhase.Value;
+        return (_phase == GamePhase.PlayerAction || _phase == GamePhase.ResolveCards) &&
+               GameMaster.Instance.m_activePlayer.Value.TryGet(out PlayerSession _active) && _active != this;
+    }
+
     public void TryHandlePackage()
     {
         if (GameMaster.Instance == null)
             return;
+
+        if (IsOpponentActing())
+        {
+            if (IsOwner && PlayerUI.Instance != null)
+                PlayerUI.Instance.ShowOpponentTurn();
+            return;
+        }
 
         var package = m_currentCardControllPackage;
         if(CheckPackage(package))
@@ -1092,12 +1106,6 @@ public class PlayerSession : NetworkBehaviour
             {
                 CardInputServerRpc(package);
                 m_currentCardControllPackage = CardControllPackage.CreateEmpty(0);
-            }
-            else if (GameMaster.Instance.m_gamePhase.Value == GamePhase.PlayerAction &&
-                     GameMaster.Instance.m_activePlayer.Value.TryGet(out PlayerSession _active) && _active != this)
-            {
-                if (IsOwner && PlayerUI.Instance != null)
-                    PlayerUI.Instance.ShowOpponentTurn();
             }
         }
         else if (IsOwner && PlayerUI.Instance != null)

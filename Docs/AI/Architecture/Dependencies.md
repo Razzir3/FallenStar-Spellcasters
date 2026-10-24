@@ -149,7 +149,7 @@ graph TD
 | `PlayerSession` → `PlayerUI` | `OnSelectionRejected`, `ShowHandLimitDiscard` | owner-only client RPCs |
 | `PlayerSession` → `SessionManager` | sets `LocalPlayer`; `GetPlayerSession` for sender checks | `RegisterLocalPlayerWhenReady`, `LeaveMatchServerRpc` |
 | `PlayerSession` → `CardPreviewController` | `ShowPreview/HidePreview` | `SelectObject` |
-| `CardPreviewController` → `PlayerUI` / `Canvas` / `LayoutRebuilder` (UI4/UI6, N50) | Resolve missing HUD canvas/root and `CardViewDock` on demand; fit/refit the preview in the dock, otherwise use the pointer/clamp fallback | `ShowPreview`, `TryResolveTargets`, `LateUpdate`; live assigned references preserved; destroyed scene targets re-resolved |
+| `CardPreviewController` → `PlayerUI` / `Canvas` / `LayoutRebuilder` (UI4/UI6, N50, F9) | Resolve missing HUD canvas/root and `CardViewDock` on demand; fit/refit the preview in the dock, otherwise use the pointer/clamp fallback | `ShowPreview`, `TryResolveTargets`, `LateUpdate`; `HidePreview()` fades, `HidePreview(true)` clears both slots for cleanup; live assigned references preserved; destroyed scene targets re-resolved |
 | `PlayerUI` → local `PlayerSession.CardPreviewController` / `CardViewUI` | Cache the local controller; subscribe to hand pointer enter/exit; preserve matching previews through clicks and clean up removed cards | `CreateCardView`, hover handlers, `UpdateCards`, `ClearHandUI`, `ClearLocalUI` |
 | `PlayerController` → `GameMaster` | `CanPlayerMove`, `HandlePlayerControlPackage` | `SendMovementInput`, `InputServerRpc` |
 | `PlayerController` → `PonyColorScript` | `SetMaterials`, `SetSelected` | `ApplyMaterial`, `SetSelected` |
@@ -271,7 +271,7 @@ Each item is a place where a change is likely to break another system. These are
 | RP7 | `SessionManager.GetFreeSlot` → `TeamId` | Team is the slot index; the scene supports teams 0 and 1 only | Reconnect order, a third connection |
 | RP8 | Scene names and IDs | `SceneFlowManager` uses scene-name strings; areas and spawn points are matched by integer team ID | Renaming scenes, duplicating areas or spawn points |
 | RP9 | `ConfirmSendButton.cs` / class `ConfirmSendButtonUI1` | File and class names differ, and `PlayerUIPrefab` references the script. It works today (C6). | Renaming either breaks the cast button. Report, don't rename. |
-| RP10 | Nested NetworkObjects | `SpawnPoint.prefab` (NetworkObject) is a child of `BlockBody` (NetworkObject) | NGO nested-object warnings or spawn errors (U2) |
+| RP10 | Nested NetworkObjects | `SpawnPoint.prefab` (NetworkObject) is a child of `BlockBody` (NetworkObject). The N27 mane child has no NetworkObject, Collider, Rigidbody or Animator. | NGO nested-object warnings or spawn errors (U2); keep the mane free of network/physics components |
 | RP11 | Server authority (M4) | `GameMaster.Update` and `HandlePlayerControlPackage` require `IsServer`; lobby-host checks stay in `MultiplayerManager` | Host/client movement; a dedicated server is untested |
 | RP12 | NetworkVariable layout and RPC table | Adding or removing NetworkVariables or RPCs on a NetworkBehaviour changes what peers expect | Both peers on the same build (§2.2); F1 adds MatchAbortedClientRpc and DeckRefilledClientRpc, F6 appends BlocksDestroyed |
 | RP13 | Lobby request rate | Lobby calls are rate-limited per player. `RefreshCurrentLobby` throttles `GetLobbyAsync` to one request at a time, 1.5 s apart (N30). | Any new `GetLobbyAsync` caller must go through `RefreshCurrentLobby` |
@@ -282,7 +282,8 @@ Each item is a place where a change is likely to break another system. These are
 | RP18 | World-space canvases on board objects (N54) | `PlayerSession.Update` treats any UI hit as a HUD click and skips its board raycast | Keep board canvases free of `GraphicRaycaster` components and raycast-target graphics; the screen-space HUD must still block clicks |
 | RP19 | Out-of-match notices (N59/F1) | PlayerNotice is a static store with a posting time and duration, not a consumed message | Scenes that display these notices need NoticeUI; keep its component active and toggle only the child Box |
 | RP20 | Timed phases (N36) | Loop completion and clients share the replicated deadline | StartPhaseCountdown at phase start; loop on PhaseTimeLeft; save remaining seconds across pauses |
-| RP21 | Menu low layouts (UI7) | Five menu canvases and both lobby item prefabs apply local low rectangles; LowText overrides fonts. Approved notice heights are 104 in both profiles; role width restores 150 low → 140 authored. | New elements need a low rectangle or must fit as authored; text that autosizes below 24 needs LowText |
+| RP21 | Menu/HUD layouts (UI7, F14a) | Five menu canvases and both lobby item prefabs apply local low rectangles; LowText overrides fonts. Approved notice heights are 104 in both profiles; role width restores 150 low → 140 authored. HUD backing boxes follow text bounds and transforms without profile entries. | New menu elements need a low rectangle or must fit as authored; text that autosizes below 24 needs LowText. New HUD text needing a box gets a non-raycasting HudTextBacking sibling immediately before it. |
+| RP22 | Mane colour pool and model import (N27) | `ManeColor` ordinal equals the index into `PonyColorScript.m_maneMaterials`; `NetworkManeColor` replicates it | Append enum values only and keep material order aligned. PonyMane/PonyBase Model scale/unit/axis settings must agree; PonyMane preserves its root hierarchy. |
 
 ---
 

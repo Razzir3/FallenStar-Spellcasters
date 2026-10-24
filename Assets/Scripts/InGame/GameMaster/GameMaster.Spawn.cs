@@ -224,6 +224,8 @@ public partial class GameMaster
             }
         }
 
+        AssignManeColors();
+
         foreach (var _playerSession in
                  SessionManager.Instance.m_playerSessions)
         {

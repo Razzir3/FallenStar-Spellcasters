@@ -34,8 +34,6 @@ using UnityEngine.InputSystem;
         public bool m_isSelected = false;
 
 
-    //ToDo
-
     public bool m_debugMode = false;
 
     private Rigidbody m_rigidbody;
@@ -107,10 +105,15 @@ using UnityEngine.InputSystem;
 
         private void ApplyMaterial()
         {
-            int _index = m_session.TeamId.Value;
+            int _team = m_session.TeamId.Value;
+            // The server picks the mane colour (N27); clients use the replicated value
+            // and PonyColorScript.OnManeColorChanged applies later updates.
+            int _mane = IsServer && GameMaster.Instance != null
+                ? (int)GameMaster.Instance.GetManeColor(m_session)
+                : m_ponyColorScript.NetworkManeColor.Value;
 
-            if (m_debugMode) Debug.Log($"Applying material index: {_index} for OwnerClientId: {OwnerClientId}");
-            m_ponyColorScript.SetMaterials(_index, _index);
+            if (m_debugMode) Debug.Log($"Applying materials: team {_team}, mane {_mane} for OwnerClientId: {OwnerClientId}");
+            m_ponyColorScript.SetMaterials(_team, _mane);
             m_defaultColor = m_meshRenderer.material.color;
         }
 

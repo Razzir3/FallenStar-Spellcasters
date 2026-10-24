@@ -64,6 +64,33 @@ public partial class GameMaster : NetworkBehaviour
 
     private SpawnPoint[] m_spawnPoint;
 
+    // N27: one mane colour per player, chosen before the first spawn of a match.
+    private readonly Dictionary<PlayerSession, ManeColor> m_maneColors = new();
+
+    private void AssignManeColors()
+    {
+        m_maneColors.Clear();
+        ManeColor[] _pool = (ManeColor[])System.Enum.GetValues(typeof(ManeColor));
+        for (int i = _pool.Length - 1; i > 0; i--)
+        {
+            int j = UnityEngine.Random.Range(0, i + 1);
+            (_pool[i], _pool[j]) = (_pool[j], _pool[i]);
+        }
+
+        int _next = 0;
+        foreach (var _pair in SessionManager.Instance.m_playerSessions)
+        {
+            PlayerSession _session = _pair.Value;
+            if (_session == null || _session.GetSessionRole() != SessionRole.Player)
+                continue;
+            m_maneColors[_session] = _pool[_next % _pool.Length];
+            _next++;
+        }
+    }
+
+    public ManeColor GetManeColor(PlayerSession session) =>
+        session != null && m_maneColors.TryGetValue(session, out ManeColor _color) ? _color : ManeColor.White;
+
 
     [Header("Timing")]
     [SerializeField] private float m_roundBreakTime = 5f;
@@ -353,6 +380,7 @@ public partial class GameMaster : NetworkBehaviour
         m_cardInputQueue.Clear();
 
         m_players.Clear();
+        m_maneColors.Clear();
         m_turnOrder.Clear();
         m_turnSelections.Clear();
 

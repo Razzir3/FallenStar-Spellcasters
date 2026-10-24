@@ -9,7 +9,20 @@ public class CardPreviewController : MonoBehaviour
     [SerializeField] private RectTransform m_previewRoot;
     [SerializeField] private CardViewUI m_cardPreviewPrefab;
 
+    [Header("Fade (F9)")]
+    [SerializeField, Min(0f)] private float m_fadeInDuration = 0.7f;
+    [SerializeField, Min(0f)] private float m_fadeOutDuration = 0.6f;
+
     private CardViewUI m_currentPreview;
+    private CanvasGroup m_currentGroup;
+    private CardViewUI m_fadingPreview;
+    private CanvasGroup m_fadingGroup;
+    private NetworkCard m_fadingCard;
+    private float m_fadeInElapsed;
+    private float m_fadeInStartAlpha;
+    private bool m_isFadingIn;
+    private float m_fadeOutElapsed;
+    private float m_fadeOutStartAlpha;
     private RectTransform m_dock;
     private Vector2 m_lastDockSize;
     private bool m_warnedMissingTargets;
@@ -61,13 +74,41 @@ public class CardPreviewController : MonoBehaviour
         if (networkCard == null) { return; }
         if (!TryResolveTargets()) { return; }
         if (m_currentPreview != null && ShownCard == networkCard) { return; }
+
+        CardViewUI _reusedPreview = null;
+        CanvasGroup _reusedGroup = null;
+        if (networkCard.m_cardData != null && m_fadingPreview != null && m_fadingCard == networkCard)
+        {
+            _reusedPreview = m_fadingPreview;
+            _reusedGroup = m_fadingGroup;
+            m_fadingPreview = null;
+            m_fadingGroup = null;
+            m_fadingCard = null;
+        }
         HidePreview();
 
         if(networkCard.m_cardData == null)
             { return; }
-        m_currentPreview = Instantiate(m_cardPreviewPrefab, m_dock != null ? m_dock : m_previewRoot);
-        m_currentPreview.Setup(networkCard.m_cardData);
-        m_currentPreview.SetFaceUp(true);
+        m_currentPreview = _reusedPreview != null ? _reusedPreview :
+            Instantiate(m_cardPreviewPrefab, m_dock != null ? m_dock : m_previewRoot);
+        if (_reusedPreview == null)
+        {
+            m_currentPreview.Setup(networkCard.m_cardData);
+            m_currentPreview.SetFaceUp(true);
+            m_currentGroup = m_currentPreview.GetComponent<CanvasGroup>();
+            if (m_currentGroup == null)
+                m_currentGroup = m_currentPreview.gameObject.AddComponent<CanvasGroup>();
+            m_currentGroup.alpha = 0f;
+        }
+        else
+        {
+            m_currentGroup = _reusedGroup;
+        }
+        m_fadeInStartAlpha = m_currentGroup.alpha;
+        m_fadeInElapsed = 0f;
+        m_isFadingIn = m_fadeInDuration > 0f && m_currentGroup.alpha < 1f;
+        if (m_fadeInDuration <= 0f)
+            m_currentGroup.alpha = 1f;
         ShownCard = networkCard;
 
         RectTransform _previewRect = m_currentPreview.GetComponent<RectTransform>();
@@ -99,6 +140,22 @@ public class CardPreviewController : MonoBehaviour
     {
         if (m_currentPreview != null && m_dock != null && m_lastDockSize != m_dock.rect.size)
             FitDock();
+
+        if (m_currentPreview != null && m_isFadingIn)
+        {
+            m_fadeInElapsed += Time.unscaledDeltaTime;
+            float _progress = m_fadeInDuration <= 0f ? 1f : Mathf.Clamp01(m_fadeInElapsed / m_fadeInDuration);
+            m_currentGroup.alpha = Mathf.Lerp(m_fadeInStartAlpha, 1f, _progress);
+            m_isFadingIn = _progress < 1f;
+        }
+        if (m_fadingPreview != null)
+        {
+            m_fadeOutElapsed += Time.unscaledDeltaTime;
+            float _progress = m_fadeOutDuration <= 0f ? 1f : Mathf.Clamp01(m_fadeOutElapsed / m_fadeOutDuration);
+            m_fadingGroup.alpha = Mathf.Lerp(m_fadeOutStartAlpha, 0f, _progress);
+            if (_progress >= 1f)
+                DestroyFadingPreview();
+        }
     }
 
     private void FitDock()
@@ -113,16 +170,54 @@ public class CardPreviewController : MonoBehaviour
         }
     }
 
-    public void HidePreview()
+    public void HidePreview() => HidePreview(false);
+
+    public void HidePreview(bool immediate)
     {
-        if (m_currentPreview != null)
+        if (immediate)
         {
-            m_currentPreview.gameObject.SetActive(false);
-            Destroy(m_currentPreview.gameObject);
-            m_currentPreview = null;
+            DestroyPreview(m_currentPreview);
+            DestroyFadingPreview();
         }
+        else if (m_currentPreview != null)
+        {
+            DestroyFadingPreview();
+            m_fadingPreview = m_currentPreview;
+            m_fadingGroup = m_currentGroup;
+            m_fadingCard = ShownCard;
+            m_fadeOutStartAlpha = m_fadingGroup.alpha;
+            m_fadeOutElapsed = 0f;
+            if (m_fadeOutDuration <= 0f)
+            {
+                m_fadingGroup.alpha = 0f;
+                DestroyFadingPreview();
+            }
+        }
+        m_currentPreview = null;
+        m_currentGroup = null;
+        m_isFadingIn = false;
         ShownCard = null;
     }
+
+    private void DestroyFadingPreview()
+    {
+        DestroyPreview(m_fadingPreview);
+        m_fadingPreview = null;
+        m_fadingGroup = null;
+        m_fadingCard = null;
+    }
+
+    private void DestroyPreview(CardViewUI preview)
+    {
+        if (preview == null)
+            return;
+        preview.gameObject.SetActive(false);
+        preview.transform.SetParent(null, false);
+        Destroy(preview.gameObject);
+    }
+
+    private void OnDisable() => HidePreview(true);
+    private void OnDestroy() => HidePreview(true);
 
     private Camera GetCanvasCamera()
     {

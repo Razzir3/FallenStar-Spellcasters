@@ -698,7 +698,7 @@ public class PlayerUI : NetworkBehaviour
         m_isLocalUiCleared = true;
         CardPreviewController _controller = GetCardPreviewController();
         if (_controller != null)
-            _controller.HidePreview();
+            _controller.HidePreview(true);
         m_hoveredCard = null;
         m_cardPreviewController = null;
         if (m_playerSession != null)
