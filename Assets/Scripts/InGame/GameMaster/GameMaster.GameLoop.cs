@@ -126,7 +126,7 @@ public partial class GameMaster
         PlayerSession winner = remainingPlayers.Count == 1 ? remainingPlayers[0] : null;
         // The host RPC can enter disconnect cleanup before this iterator returns.
         m_gameCoroutine = null;
-        EndMatch(winner, MatchEndReason.LivesDepleted);
+        EndMatch(winner, m_finishReason);
     }
     /// <summary>
     /// Processes each player's turn in the order determined by the turn order list. It handles the player action phase for each player and checks if the game is finished after each turn.
@@ -173,11 +173,9 @@ public partial class GameMaster
                 $"Player Action phase started. " +
                 $"Active player: {player.OwnerClientId}");
         }
-
-        m_phaseElapsed = 0f;
         StartPhaseCountdown(m_playerActionTime);
 
-        while (m_phaseElapsed < m_playerActionTime)
+        while (PhaseTimeLeft() > 0)
         {
             if (IsGameFinished()) break;
             if (m_externalDeathDetected || IsAnyPlayerDead())
@@ -331,8 +329,6 @@ public partial class GameMaster
                 break;
             }
 
-            m_phaseElapsed += Time.deltaTime;
-
             yield return null;
         }
 
@@ -390,10 +386,9 @@ public partial class GameMaster
         {
             Debug.Log("Round break phase started");
         }
-        m_phaseElapsed = 0f;
         StartPhaseCountdown(m_roundBreakTime);
 
-        while (m_phaseElapsed < m_roundBreakTime)
+        while (PhaseTimeLeft() > 0)
         {
             if (IsGameFinished()) yield break;
             if (m_externalDeathDetected || IsAnyPlayerDead())
@@ -401,8 +396,6 @@ public partial class GameMaster
                 yield return HandleDeathPausingCurrentPhase();
                 if (IsGameFinished()) yield break;
             }
-
-            m_phaseElapsed += Time.deltaTime;
             yield return null;
         }
         if (m_debugMode)
@@ -425,7 +418,6 @@ public partial class GameMaster
 
         m_selectionTimerResetsThisPhase[session] = _phaseResets + 1;
         m_selectionTimerResetsThisMatch[session] = _matchResets + 1;
-        m_phaseElapsed = 0f;
         StartPhaseCountdown(m_cardSelectionTime);
     }
 
@@ -453,11 +445,9 @@ public partial class GameMaster
         }
 
         if (m_debugMode) Debug.Log("Card selection phase started.");
-
-        m_phaseElapsed = 0f;
         StartPhaseCountdown(m_cardSelectionTime);
 
-        while (m_phaseElapsed < m_cardSelectionTime)
+        while (PhaseTimeLeft() > 0)
         {
             if (IsGameFinished()) yield break;
             if (m_externalDeathDetected || IsAnyPlayerDead())
@@ -470,7 +460,6 @@ public partial class GameMaster
             {
                 break;
             }
-            m_phaseElapsed += Time.deltaTime;
             yield return null;
         }
 
@@ -484,39 +473,31 @@ public partial class GameMaster
     {
         if (m_debugMode)
             Debug.Log("DrawPhase started");
-        m_phaseElapsed = 0;
-        StartPhaseCountdown(m_startHandCards * m_players.Count * m_cardDrawDelay);
-        for (int i = 0; i < m_startHandCards; i++)
+        m_gamePhase.Value = GamePhase.DrawCards;
+        int _drawCount = m_startHandCards * m_players.Count;
+        StartPhaseCountdown(_drawCount * m_cardDrawDelay);
+        int _drawn = 0;
+
+        while (true)
         {
-            for (int j = 0; j < m_players.Count; j++)
+            if (IsGameFinished()) yield break;
+            if (m_externalDeathDetected || IsAnyPlayerDead())
             {
+                yield return HandleDeathPausingCurrentPhase();
                 if (IsGameFinished()) yield break;
-                if (m_externalDeathDetected || IsAnyPlayerDead())
-                {
-                    yield return HandleDeathPausingCurrentPhase();
-                    if (IsGameFinished()) yield break;
-                }
-
-                DrawCard(m_players[j]);
-                // Keep the draw delay interruptible so a death is noticed next frame.
-                float _drawDelayElapsed = 0f;
-                do
-                {
-                    yield return null;
-
-                    if (IsGameFinished()) yield break;
-                    if (m_externalDeathDetected || IsAnyPlayerDead())
-                    {
-                        yield return HandleDeathPausingCurrentPhase();
-                        if (IsGameFinished()) yield break;
-                    }
-
-                    _drawDelayElapsed += Time.deltaTime;
-                }
-                while (_drawDelayElapsed < m_cardDrawDelay);
-
-                m_phaseElapsed += m_cardDrawDelay;
             }
+
+            // Draw i is due once no more than (count - i) delays remain.
+            while (_drawn < _drawCount && PhaseTimeLeft() <= (_drawCount - _drawn) * m_cardDrawDelay)
+            {
+                DrawCard(m_players[_drawn % m_players.Count]);
+                _drawn++;
+            }
+
+            if (_drawn >= _drawCount && PhaseTimeLeft() <= 0)
+                break;
+
+            yield return null;
         }
         if (m_debugMode)
             Debug.Log("Draw phase ended");
@@ -542,8 +523,7 @@ public partial class GameMaster
         }
 
         GamePhase _pausedPhase = m_gamePhase.Value;
-        float _pausedTimer = m_phaseElapsed;
-        float _pausedDuration = m_phaseDuration;
+        float _pausedTimeLeft = (float)System.Math.Max(0d, PhaseTimeLeft());
         NetworkBehaviourReference _pausedActivePlayer = m_activePlayer.Value;
 
         yield return WaitForRespawnIfNeeded();
@@ -552,8 +532,7 @@ public partial class GameMaster
             yield break;
 
         m_gamePhase.Value = _pausedPhase;
-        m_phaseElapsed = _pausedTimer;
-        StartPhaseCountdown(_pausedDuration, _pausedTimer);
+        StartPhaseCountdown(_pausedTimeLeft);
         m_activePlayer.Value = _pausedActivePlayer;
     }
     /// <summary>
@@ -601,18 +580,14 @@ public partial class GameMaster
 
                 yield break;
             }
-
-            m_phaseElapsed = 0f;
             StartPhaseCountdown(m_respawnWaitTime);
 
-            while (m_phaseElapsed < m_respawnWaitTime)
+            while (PhaseTimeLeft() > 0)
             {
                 if (m_respawnConfirmed)
                 {
                     break;
                 }
-
-                m_phaseElapsed += Time.deltaTime;
 
                 yield return null;
             }

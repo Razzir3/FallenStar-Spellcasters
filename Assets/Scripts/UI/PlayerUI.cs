@@ -43,6 +43,10 @@ public class PlayerUI : NetworkBehaviour
     [SerializeField] private LocalizedString m_labelOpponentMana;
     [SerializeField] private LocalizedString m_manaNotEnoughText;
     [SerializeField] private LocalizedString m_handLimitDiscardText;
+    [SerializeField] private LocalizedString m_selectCardFirstText = new LocalizedString("UI_table", "notice_select_card_first");
+    [SerializeField] private LocalizedString m_confirmTargetFirstText = new LocalizedString("UI_table", "notice_confirm_target_first");
+    [SerializeField] private LocalizedString m_opponentTurnText = new LocalizedString("UI_table", "notice_opponent_turn");
+    [SerializeField] private LocalizedString m_deckRefilledText = new LocalizedString("UI_table", "notice_deck_refilled");
     [SerializeField] private float m_messageDuration = 2f;
     [SerializeField] private LocalizedString m_playerDeadText;
     [SerializeField] private LocalizedString m_phaseAnouncementText;
@@ -265,6 +269,11 @@ public class PlayerUI : NetworkBehaviour
     {
         ShowMessage(m_handLimitDiscardText);
     }
+
+    public void ShowSelectCardFirst() => ShowMessage(m_selectCardFirstText);
+    public void ShowConfirmTargetFirst() => ShowMessage(m_confirmTargetFirstText);
+    public void ShowOpponentTurn() => ShowMessage(m_opponentTurnText);
+    public void ShowDeckRefilled() => ShowMessage(m_deckRefilledText);
 
     private void ShowMessage(LocalizedString message)
     {

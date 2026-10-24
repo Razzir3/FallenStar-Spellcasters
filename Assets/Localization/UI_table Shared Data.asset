@@ -307,6 +307,58 @@ MonoBehaviour:
     m_Key: hand_limit_discard
     m_Metadata:
       m_Items: []
+  - m_Id: 50769044537409539
+    m_Key: notice_connection_lost
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50769044537409540
+    m_Key: notice_match_cancelled
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50769044537409541
+    m_Key: notice_sign_in_failed
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50769044537409542
+    m_Key: notice_create_lobby_failed
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50769044537409543
+    m_Key: notice_join_lobby_failed
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50769044537409544
+    m_Key: notice_lobby_search_failed
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50769044537409545
+    m_Key: notice_start_game_failed
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50769044537409546
+    m_Key: notice_select_card_first
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50769044537409547
+    m_Key: notice_confirm_target_first
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50769044537409548
+    m_Key: notice_opponent_turn
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50769044537409549
+    m_Key: notice_deck_refilled
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50769044537409550
+    m_Key: result_reason_opponentBlocksDestroyed
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50769044537409551
+    m_Key: result_reason_youBlocksDestroyed
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

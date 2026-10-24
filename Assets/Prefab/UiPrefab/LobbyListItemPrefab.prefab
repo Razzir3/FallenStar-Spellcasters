@@ -563,6 +563,7 @@ GameObject:
   - component: {fileID: 6948627770633262316}
   - component: {fileID: 3606684768429590358}
   - component: {fileID: 293322007435171669}
+  - component: {fileID: 6827396699227671934}
   m_Layer: 5
   m_Name: LobbyListItemPrefab
   m_TagString: Untagged
@@ -1152,3 +1153,54 @@ MonoBehaviour:
   references:
     version: 2
     RefIds: []
+--- !u!114 &6827396699227671934
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4908973005536538226}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 108596713ab06244e98951ba5133a90b, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::ResolutionProfileLayout
+  m_lowTexts: []
+  m_canvasScaler: {fileID: 0}
+  m_lowReferenceResolution: {x: 0, y: 0}
+  m_lowRects:
+  - m_target: {fileID: 7127482372734473347}
+    m_anchorMin: {x: 0.5, y: 0.5}
+    m_anchorMax: {x: 0.5, y: 0.5}
+    m_pivot: {x: 0.5, y: 0.5}
+    m_anchoredPosition: {x: -345, y: 0}
+    m_sizeDelta: {x: 200, y: 50}
+    m_scale: 1
+  - m_target: {fileID: 5673717451938562567}
+    m_anchorMin: {x: 0.5, y: 0.5}
+    m_anchorMax: {x: 0.5, y: 0.5}
+    m_pivot: {x: 0.5, y: 0.5}
+    m_anchoredPosition: {x: -120, y: 0}
+    m_sizeDelta: {x: 220, y: 50}
+    m_scale: 1
+  - m_target: {fileID: 8448123869850094667}
+    m_anchorMin: {x: 0.5, y: 0.5}
+    m_anchorMax: {x: 0.5, y: 0.5}
+    m_pivot: {x: 0.5, y: 0.5}
+    m_anchoredPosition: {x: 90, y: 0}
+    m_sizeDelta: {x: 180, y: 50}
+    m_scale: 1
+  - m_target: {fileID: 2004521905975798774}
+    m_anchorMin: {x: 0.5, y: 0.5}
+    m_anchorMax: {x: 0.5, y: 0.5}
+    m_pivot: {x: 0.5, y: 0.5}
+    m_anchoredPosition: {x: 265, y: 0}
+    m_sizeDelta: {x: 140, y: 56}
+    m_scale: 1
+  - m_target: {fileID: 6455339718640231345}
+    m_anchorMin: {x: 0.5, y: 0.5}
+    m_anchorMax: {x: 0.5, y: 0.5}
+    m_pivot: {x: 0.5, y: 0.5}
+    m_anchoredPosition: {x: 400, y: 0}
+    m_sizeDelta: {x: 120, y: 56}
+    m_scale: 1

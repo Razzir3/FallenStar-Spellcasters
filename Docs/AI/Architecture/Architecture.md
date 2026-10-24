@@ -1,7 +1,7 @@
 # FallenStar – Spellcasters: Architecture Overview
 
-- **Updated:** 2026-10-23 (header refresh, Issue Report #13). Full refresh: 2026-10-20 (TASK-N8). First audit: 2026-10-18. Each task since then updated the sections it touched.
-- **Code baseline:** commit `6d89a09` **plus the uncommitted working tree** with N54–N58 and N32–N35. Claude reviewed that working tree in [Issue Report #13](../Reports/2026-10-23_IssueReport-13.md); the owner's manual checklist for it is pending.
+- **Updated:** 2026-10-24 (Codex's TASK-N59_N61_F1, TASK-F4_F6_N36 and TASK-UI7; header refresh in Issue Report #15). Full refresh: 2026-10-20 (TASK-N8). First audit: 2026-10-18. Each task since then updated the sections it touched.
+- **Code baseline:** commit `ff8a9dd` (N54–N58, N32–N35) plus the uncommitted implementation of TASK-N59_N61_F1, TASK-F4_F6_N36 and TASK-UI7, reviewed in [Issue Report #15](../Reports/2026-10-24_IssueReport-15.md) §1. The owner's checklist for it (`ManualChecks/2026-10-24_ManualChecks-Report15.xlsx`) is pending.
 - **Method:** static reading of every C# file under `Assets/Scripts` (56 files, about 12.6k lines), plus YAML checks of scenes, prefabs, build settings and localization tables.
 - **Runtime evidence** (not re-run for this update):
   - The owner's two-Editor and player-build checklists up to 2026-10-22 (Issue Report #12 §1): matches as host and as client, the Settings scene, all three languages.
@@ -152,7 +152,7 @@ Full call chains: [GameLoop.md §4](GameLoop.md#4-network-message-paths).
 | Responsibility | Where | Authority |
 |---|---|---|
 | Match state machine, timers, turn order | `GameMaster.GameLoop.cs`, run by `RunGuarded` | Server only (started by `StartNewGame`) |
-| Phase, countdown end, active/respawning player, input lock, selection phase ID | `GameMaster.m_gamePhase`, `m_phaseEndServerTime`, `m_activePlayer`, `m_waitingRespawnPlayer`, `m_isInputLocked`, `m_selectionPhaseId` (NetworkVariables). Loop time (`m_phaseElapsed`, `m_phaseDuration`) is private. | Server write |
+| Phase, countdown end, active/respawning player, input lock, selection phase ID | `GameMaster.m_gamePhase`, `m_phaseEndServerTime`, `m_activePlayer`, `m_waitingRespawnPlayer`, `m_isInputLocked`, `m_selectionPhaseId` (NetworkVariables). Timed loops use `PhaseTimeLeft()` against that same replicated deadline (N36). | Server write |
 | HP, lives, mana, block HP, team | `PlayerController.m_hpCurrent/m_hpMax`, `PlayerSession.m_lifeCurrent/m_manaCapacity/m_manaCurrent/TeamId`, `BlockController.m_blockHP/m_teamId` | Server write |
 | Hand and board lists | `PlayerSession.m_handCards/m_boardPlayCards/m_boardDiscardCards` (`NetworkList<ulong>`) | Server write |
 | Card identity (`CardData`) | **Not networked.** The server sets `NetworkCard.m_cardData` directly. Clients get the card id through `GameMaster.SendCardDataClientRpc` and look it up with `CardDatabase.TryGetCard`. | Server → targeted client RPC |
@@ -163,7 +163,7 @@ Full call chains: [GameLoop.md §4](GameLoop.md#4-network-message-paths).
 | All visuals: hand, board views, announcer, HP/mana text, messages | `PlayerUI`, `CardWorldViewManager`, `GameAnnouncerUI`, `CardViewUI/World`, `PonyColorScript` | Local, driven by NetworkVariable/NetworkList callbacks and polling |
 
 - The host is both server and a player. `GameMaster.Update` and `HandlePlayerControlPackage` check `IsServer` (M4), so input handling would also run without a local client.
-- `MultiplayerManager` keeps its own lobby-host checks. A dedicated server is out of scope.
+- `MultiplayerManager` keeps its own lobby-host checks. A dedicated server is out of scope for now. The owner plans a later move from host + client to **server + clients** (poll 2026-10-23, P1 and P11). New client-side code should key on "is the server", not "is the host".
 
 ---
 
@@ -203,14 +203,16 @@ Details: [GameLoop.md §3.8](GameLoop.md#38-match-end-abort-and-the-guarded-runn
 
 | Path | Entry | Result screen |
 |---|---|---|
-| Normal end | `GameLoop` → `EndMatch(winner, LivesDepleted)` | Win / lose / draw |
+| Normal end by lives | `GameLoop` → `EndMatch(winner, m_finishReason)` (`LivesDepleted` by default) | Win / lose / draw |
+| Last block destroyed | `UpdateBlockHp` → `EliminatePlayerByBlocks`; lives −1, character removed, then `GameLoop` → `EndMatch(…, BlocksDestroyed)` | Winner/loser-specific all-blocks-destroyed reason (F6) |
 | Leave match button | `LeaveMatchUI` → `PlayerSession.LeaveMatchServerRpc` → `GameMaster.HandlePlayerSurrender` → `EndMatch(…, Surrendered)` | The leaver loses ("you left") |
 | Opponent disconnects in a match | `SessionManager.OnClientDisconnected` → `GameMaster.HandlePlayerLeft` → `EndMatch(…, OpponentDisconnected)` | The remaining player wins ("opponent left") |
-| Loop exception | `RunGuarded` → `AbortMatch("loop_exception")` | None: back to `LobbyScene` |
-| Start failure | `MultiplayerManager.AbortGameStart(reason)` → `AbortMatch`, or `Disconnect` when there's no GameMaster (N14) | None: back to `LobbyScene` |
+| Loop exception | `RunGuarded` → `AbortMatch("loop_exception")` | None: back to `LobbyScene`, with a cancellation notice |
+| Start failure | `MultiplayerManager.AbortGameStart(reason)` → `AbortMatch`, or `Disconnect` when there's no GameMaster (N14) | None: back to `LobbyScene`, with a cancellation notice |
 
 - `MatchEndedClientRpc` makes every peer run `MultiplayerManager.LeaveMatchToResultScene`. It leaves or deletes the lobby, cleans up, shuts the network down and loads `ResultScene`.
-- `ResultMenuUI` shows the localized title and reason from `MatchResultData`.
+- `ResultMenuUI` shows the localized title and reason from `MatchResultData`, including each side's `BlocksDestroyed` text.
+- A client losing the host/transport in a lobby or match returns to Lobby with `notice_connection_lost` (N59). Match aborts broadcast a best-effort cancellation notice first; a lost RPC falls back to connection lost. Deliberate client exits and Result transitions retain their existing paths.
 - `ResultSceneController` only logs the result in debug mode.
 
 ---
@@ -232,7 +234,7 @@ Details: [GameLoop.md §3.8](GameLoop.md#38-match-end-abort-and-the-guarded-runn
 
 Sources: `Assets/Localization/*`, `Bootstrap.ApplySavedLanguage`, `SettingsUI.cs`, `GameSettingsPrefs.cs`, the UI scripts.
 
-- **[Confirmed]** Locales en, ru, ja. `UI_table` has 73 keys and `Cards` has 8. Every locale has a non-empty entry for every key, including `Phase.*` for all 9 phases, the result texts, mana and hand-limit messages.
+- **[Confirmed]** Locales en, ru, ja. `UI_table` has 86 keys and `Cards` has 8. Every locale has a non-empty entry for every key, including `Phase.*` for all 9 phases, the result texts, mana and hand-limit messages.
 - **[Confirmed] Saved language:**
   - `SettingsUI.OnLanguageChanged` (in `SettingsScene`) sets `LocalizationSettings.SelectedLocale` and saves the code in `PlayerPrefs["setting.language_code"]`.
   - `Bootstrap.Start` waits for `LocalizationSettings.InitializationOperation`, then applies the saved code.
@@ -240,7 +242,7 @@ Sources: `Assets/Localization/*`, `Bootstrap.ApplySavedLanguage`, `SettingsUI.cs
   - `LocalizedString` with `StringChanged` and Smart variables: `LobbyListUI`, `LobbyPlayerListUI`, `CurrentLobbyUI`, `LobbyListItemUI`.
   - Async `GetLocalizedStringAsync` that reacts to locale changes: `LobbyPlayerItemUI`.
   - Cached `LocalizedString` per key, re-read only when the state or locale changes: `GameAnnouncerUI` (L6).
-  - Serialized `LocalizedString` fields: `PlayerUI` (HP and lives every frame, mana on change, messages on locale change) and `ResultMenuUI` (via `LocalizeStringEvent`).
+  - Serialized `LocalizedString` fields: `PlayerUI` (HP/lives/mana on change, messages on locale change) and `ResultMenuUI` (via `LocalizeStringEvent`).
   - `StringDatabase.GetLocalizedString("Cards", key)` in `CardViewUI` / `CardViewWorld.ApplyTexts`, re-run on `SelectedLocaleChanged` by `CardViewBase` (L7).
 - **Names:** the lobby name and player names are the first six characters of the player ID (`GetShortPlayerId`). Role values "Host"/"Client" are protocol data, not display text (M13). The lobby shows the ID twice (N29, parked).
 - **Font (N28):**
@@ -255,7 +257,11 @@ Sources: `Assets/Localization/*`, `Bootstrap.ApplySavedLanguage`, `SettingsUI.cs
 
 **UI6 readability profiles (2026-10-22).** `UiResolutionProfile` selects Low below width 1366. `ResolutionProfileLayout` on `PlayerUIPrefab` captures authored rectangles/reference in Awake, applies the compact 1600×1000 reference and 13 rectangle overrides locally, and restores the authored 2560×1600 layout when returning to Medium/high. It executes before `PlayerUI`, which re-spaces the hand whenever its local width changes. HUD label minima are 30; Confirm, Send and Confirm turn form a wide button column. `CardViewDock` is a non-interactive, non-raycasting child before LeaveMatch. The local session's `CardPreviewController` fits a reused card view to this dock, refits on dock-size changes, and retains UI4's pointer/clamp path if no dock exists. Hand pointer enter/exit events show/hide the view without changing play/discard or board-click rules. Cleanup removes hover subscriptions and hides the preview. The card prefab and networking are unchanged. Prescribed card sizes do not meet every description-pixel target; exact measurements and inherited medium-layout rectangle intersections are documented in the UI6 implementation report.
 
-**UI6 windowed bounds (N49).** Windowed mode uses the display work area minus 16 horizontal pixels and 64 vertical pixels; an unavailable work area falls back to display minus one pixel on both axes. Resolution-list callers supply these inclusive bounds. The automatic size first prefers a fitting monitor mode within 1% of the display aspect, then any fitting mode, then the current size. The current-size exception, fullscreen behavior, preference persistence and Settings minimum 1024×720 remain unchanged.
+**UI6 windowed bounds (N49).** Windowed mode uses the display work area minus 16 horizontal pixels and 64 vertical pixels; an unavailable work area falls back to display minus one pixel on both axes. Resolution-list callers supply these inclusive bounds. The automatic size first prefers a fitting monitor mode within 1% of the display aspect, then any fitting mode, then the current size. The current-size exception, fullscreen behavior and preference persistence remain unchanged. UI7 lowers the Settings minimum to 640×480.
+
+**Player notices (N59/N61/F1).** `PlayerNotice` stores one key and an unscaled posting time across scene loads, valid for six seconds rather than consumed once. `NoticeUI` on Login/Lobby's active NoticePanel shows its child Box, caches a LocalizedString per key, refreshes on posts and locale changes, and only compares expiry each frame. Neither its image nor text raycasts. Sign-in, create/join/search/start failures and cancellation post notices; lobby-refresh polling errors stay quiet. In-match Select-card-first, Confirm-target-first, Opponent-turn and Deck-refilled messages use PlayerUI's existing two-second line. Owner-side opponent-action confirms return before sending the RPC and preserve selections; server validation is unchanged.
+
+**UI7 menu low profile.** The five menu canvases capture authored rectangles/font settings and switch below width 1366 to a 1280×720 reference. `LowText` overrides autosize limits or fixed font size and restores all captured settings on return to medium/high. LobbyListItemPrefab has its own rectangle profile and leaves the canvas scaler alone. The owner approved 104-unit Login/Lobby notice heights in both profiles with nearby low layout adjustments, and a LobbyPlayerItemPrefab low-only role width of 150 (authored 140) to fit Japanese. Settings offers monitor modes down to 640×480, retaining N49's fitting/current-mode rules. The gameplay HUD's LowText list remains empty and its UI6 profiles are unchanged.
 
 ---
 
@@ -269,7 +275,7 @@ These are the open structural risks. Each needs its own task before anything cha
 | A2 | Server rules call client UI, and `GameMaster` writes `MultiplayerManager` state | `ClearupAfterDisconnect` → `PlayerUI.ClearLocalUI`, `CardWorldViewManager.ClearAllWorldViews`; `SpawnPlayers` → `m_currentMultiplayerStatus` |
 | A3 | Team identity is the slot index. `SessionManager` has 4 slots, but the scene supports only teams 0 and 1. | `GetFreeSlot`, `SpawnPoint.m_teamId`, `PlayerCardWorldArea.m_sessionSearchId` |
 | A4 | Nested NetworkObject: `SpawnPoint.prefab` has a `NetworkObject` and is a child of `BlockBody` | U2: no NGO warning in any log so far. **[Unknown]** |
-| A5 | Disconnect cleanup runs `GameMaster.ClearupAfterDisconnect` twice per path (`HandleLostConnectionToHost` / `ShutdownHostInternal` / `DisconnectClientInternal`, then `CleanupAfterDisconnect`) | Each step is safe to repeat; all despawns are server-only |
+| A5 | Disconnect cleanup runs `GameMaster.ClearupAfterDisconnect` twice per path (`HandleLostConnectionToHost` / `ShutdownHostInternal` / `DisconnectClientInternal`, then `CleanupAfterDisconnect`) | Each step is safe to repeat; all despawns are server-only. N61 ignores the host's deferred local shutdown callback only after cleanup (no lobby, InMenuStatus), preventing a second LobbyScene load; real in-lobby/in-game losses still run the existing path. |
 | A7 | Dynamic font asset changes on every Editor run | N28 rule in `AGENTS.md` |
 
 ---
@@ -288,16 +294,15 @@ These are the open structural risks. Each needs its own task before anything cha
 **Unfinished:**
 - Steam login (`AuthManager.SignInSteam` only logs a warning)
 - join by code (parked, M11)
-- the `DrawCards`, `ResolveCards` and `RoundEnd` phases as real phases
+- `ResolveCards` stays transient and `RoundEnd` stays unused; `DrawCards` is now set during dealing (F4)
 - combo and discard actions; `All*` / `Random*` targets; `ActivityEffect`
 - `SessionRole.Spectator` (never assigned)
-- the "destroy all blocks" win rule as a direct rule
 - the mane colour (N27)
 
 **Unknown, needing an Editor or Play Mode check:**
 - NGO behaviour with the nested SpawnPoint NetworkObject (A4, U2)
 - the NGO `NetworkSceneManager.Dispose` NRE on Play Mode stop (U9, inside NGO, during teardown)
-- the owner's manual checklist for N54–N58 and N32–N35 ([Issue Report #13](../Reports/2026-10-23_IssueReport-13.md) §5). The L1–N28 checks passed in the 2026-10-20 checklists (Issue Report #8).
+- Countdown stall checks (N36) measured the old loops about 0.67–0.68 s late after a 1 s stall. Deadline-based loops ended within one frame; see the 2026-10-24 implementation evidence under `build/oct24-verification/`.
 
 ---
 

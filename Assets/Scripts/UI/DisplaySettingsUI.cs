@@ -9,8 +9,8 @@ public class DisplaySettingsUI : MonoBehaviour
 {
     [SerializeField] private TMP_Dropdown m_displayModeDropdown;
     [SerializeField] private TMP_Dropdown m_resolutionDropdown;
-    [SerializeField] private int m_minWidth = 1024;
-    [SerializeField] private int m_minHeight = 720;
+    [SerializeField] private int m_minWidth = 640;
+    [SerializeField] private int m_minHeight = 480;
     private const int k_frameAllowance = 16;
     private const int k_titleBarAllowance = 64;
 

@@ -41,6 +41,7 @@ public class MultiplayerManager : MonoBehaviour
     public bool m_debugMode = false;
 
     private bool m_onDisconnecting = false;
+    private bool m_isMatchCancelled;
     private bool m_onApplicationClosing = false;
     private bool m_isLeavingToResult = false;
     [SerializeField] private float m_resultLeaveTimeout = 3f;
@@ -238,6 +239,12 @@ public class MultiplayerManager : MonoBehaviour
 
         bool _isLocalClientDisconnected = clientId == NetworkManager.Singleton.LocalClientId;
 
+        if (IsOwnShutdownTail(_isServer, _isLocalClientDisconnected, m_currentLobby != null, m_currentMultiplayerStatus))
+        {
+            if (m_debugMode) Debug.Log("Host shutdown finished after cleanup; nothing to do.");
+            return;
+        }
+
         bool _isHostDisconnectedForClient = !_isServer && clientId == NetworkManager.ServerClientId;
 
         if(_isServer && !_isLocalClientDisconnected)
@@ -262,6 +269,8 @@ public class MultiplayerManager : MonoBehaviour
         if (m_onDisconnecting)
             return;
 
+        bool _wasServer = NetworkManager.Singleton != null && NetworkManager.Singleton.IsServer;
+        MultiplayerStatus _statusAtEntry = m_currentMultiplayerStatus;
         m_onDisconnecting = true;
 
         try
@@ -302,9 +311,24 @@ public class MultiplayerManager : MonoBehaviour
         }
         finally
         {
+            if (ShouldShowConnectionLost(_statusAtEntry, _wasServer, m_isMatchCancelled))
+                PlayerNotice.Post("notice_connection_lost");
             CleanupAfterDisconnect();
         }
     }
+    internal static bool ShouldShowConnectionLost(MultiplayerStatus statusAtEntry, bool wasServer, bool matchCancelled) =>
+        !wasServer && !matchCancelled &&
+        (statusAtEntry == MultiplayerStatus.InLobbyStatus || statusAtEntry == MultiplayerStatus.InGameStatus);
+
+    internal static bool IsOwnShutdownTail(bool isServer, bool isLocalClient, bool hasLobby, MultiplayerStatus status) =>
+        isServer && isLocalClient && !hasLobby && status == MultiplayerStatus.InMenuStatus;
+
+    public void MarkMatchCancelled()
+    {
+        m_isMatchCancelled = true;
+        PlayerNotice.Post("notice_match_cancelled");
+    }
+
     public async void Disconnect()
     {
         if (m_onDisconnecting)
@@ -579,23 +603,6 @@ public class MultiplayerManager : MonoBehaviour
         }
     }
 
-    //todo Dont use rn
-    /*
-    async Task InitUnityServices()
-    {
-        await UnityServices.InitializeAsync();
-
-        string _profileName = UnityEngine.Random.Range(100000, 999999).ToString();
-
-
-        AuthenticationService.Instance.SwitchProfile(_profileName);
-
-        await AuthenticationService.Instance.SignInAnonymouslyAsync();
-
-        if (m_debugMode) Debug.Log("PlayerID: " +
-            AuthenticationService.Instance.PlayerId);
-    }
-    */
     public async Task StartHost()
     {
         if (m_isRelayAction)
@@ -618,6 +625,7 @@ public class MultiplayerManager : MonoBehaviour
             if (!NetworkManager.Singleton.IsHost)
             {
                 Debug.LogError("MultiplayerManager: host was not started.");
+                PlayerNotice.Post("notice_create_lobby_failed");
                 return;
             }
 
@@ -665,11 +673,13 @@ public class MultiplayerManager : MonoBehaviour
         catch(LobbyServiceException e)
         {
             Debug.LogError(e);
+            PlayerNotice.Post("notice_create_lobby_failed");
             ResetAfterFailedHostStart();
         }
         catch (System.Exception e)
         {
             Debug.LogException(e);
+            PlayerNotice.Post("notice_create_lobby_failed");
             ResetAfterFailedHostStart();
         }
         finally
@@ -841,10 +851,12 @@ public class MultiplayerManager : MonoBehaviour
         catch (LobbyServiceException e)
         {
             Debug.LogError(e);
+            PlayerNotice.Post("notice_lobby_search_failed");
         }
         catch (System.Exception e)
         {
             Debug.LogException(e);
+            PlayerNotice.Post("notice_lobby_search_failed");
         }
 
         return m_knowLobbies;
@@ -883,6 +895,7 @@ public class MultiplayerManager : MonoBehaviour
             if(m_currentLobby.Data == null||!m_currentLobby.Data.ContainsKey("joinCode"))
             {
                 Debug.LogError("SelectedLobby does not have joinCode");
+                PlayerNotice.Post("notice_join_lobby_failed");
                 await LeaveCurrentLobbyAfterFailedJoin();
                 return;
             }
@@ -893,6 +906,7 @@ public class MultiplayerManager : MonoBehaviour
             bool _relayJoined = await JoinRelay(_joinCode);
             if(!_relayJoined)
             {
+                PlayerNotice.Post("notice_join_lobby_failed");
                 await LeaveCurrentLobbyAfterFailedJoin();
                 return;
             }
@@ -909,6 +923,7 @@ public class MultiplayerManager : MonoBehaviour
         catch(LobbyServiceException e)
         {
             Debug.LogError(e);
+            PlayerNotice.Post("notice_join_lobby_failed");
             if (m_currentLobby != null)
                 await LeaveCurrentLobbyAfterFailedJoin();
             if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening)
@@ -917,6 +932,7 @@ public class MultiplayerManager : MonoBehaviour
         catch (System.Exception e)
         {
             Debug.LogException(e);
+            PlayerNotice.Post("notice_join_lobby_failed");
             if (m_currentLobby != null)
                 await LeaveCurrentLobbyAfterFailedJoin();
             if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening)
@@ -1249,6 +1265,7 @@ public class MultiplayerManager : MonoBehaviour
                 m_isStartingGameScene = false;
                 m_startGameSceneCoroutine = null;
 
+                PlayerNotice.Post("notice_start_game_failed");
                 yield break;
             }
             yield return null;
@@ -1262,6 +1279,7 @@ public class MultiplayerManager : MonoBehaviour
             m_isStartingGameScene = false;
             m_startGameSceneCoroutine = null;
 
+            PlayerNotice.Post("notice_start_game_failed");
             yield break;
         }
 
@@ -1314,7 +1332,10 @@ public class MultiplayerManager : MonoBehaviour
         if (GameMaster.Instance != null)
             GameMaster.Instance.AbortMatch(reason);
         else
+        {
+            MarkMatchCancelled();
             Disconnect();
+        }
     }
 
     private async void OnLoadEventCompleted(
@@ -1519,6 +1540,7 @@ public class MultiplayerManager : MonoBehaviour
         }
 
         m_onDisconnecting = false;
+        m_isMatchCancelled = false;
         m_onApplicationClosing = false;
 
         if(SessionManager.Instance != null)
@@ -1554,9 +1576,10 @@ public class MultiplayerManager : MonoBehaviour
     void SetLobbyCode()
     {
         if (m_debugMode)
+        {
             Debug.Log("SetLobbyCode");
-        if (m_debugMode)
             Debug.Log("Lobby code: " + m_currentLobby.LobbyCode);
+        }
     }
 
     public bool IsCurrentLobbyFull()

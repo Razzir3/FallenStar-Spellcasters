@@ -313,16 +313,7 @@ public partial class GameMaster
             }
             _session.m_lifeCurrent.Value -= 1;
 
-            DespawnCharacter(_session);
-
-            SpawnPoint _spawnPoint = _session.GetSpawnPoint();
-            if (_spawnPoint != null)
-            {
-                _spawnPoint.IsOccupied = false;
-            }
-
-            _session.SetCharacter(null);
-            _session.CharacterObjectId.Value = 0;
+            RemoveCharacter(_session);
         }
     }
     private void UpdateBlockHp(BlockController controller)
@@ -345,6 +336,9 @@ public partial class GameMaster
         {
             controller.NetworkObject.Despawn(true);
         }
+
+        if (_session != null && CountSpawnedBlocks(_session) == 0)
+            EliminatePlayerByBlocks(_session);
     }
     public void ServerKillPlayerByHazard(PlayerController playerController)
     {

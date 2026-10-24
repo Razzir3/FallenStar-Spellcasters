@@ -321,6 +321,58 @@ MonoBehaviour:
     m_Localized: Windowed
     m_Metadata:
       m_Items: []
+  - m_Id: 50769044537409539
+    m_Localized: "Connection to the host was lost."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50769044537409540
+    m_Localized: "The match couldn't continue and was cancelled."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50769044537409541
+    m_Localized: "Couldn't sign in. Check your connection and try again."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50769044537409542
+    m_Localized: "Couldn't create a lobby. Check your connection and try again."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50769044537409543
+    m_Localized: "Couldn't join the lobby. It may be full or closed."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50769044537409544
+    m_Localized: "Couldn't load the lobby list. Try again."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50769044537409545
+    m_Localized: "Couldn't start the match. Both players must be connected; try again."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50769044537409546
+    m_Localized: "Pick a played card in the bottom row first."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50769044537409547
+    m_Localized: "Choose a target and press Confirm before Send."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50769044537409548
+    m_Localized: "It's your opponent's turn."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50769044537409549
+    m_Localized: "The deck ran out: a new deck was shuffled."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50769044537409550
+    m_Localized: "All your opponent's blocks were destroyed."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50769044537409551
+    m_Localized: "All your blocks were destroyed."
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds:

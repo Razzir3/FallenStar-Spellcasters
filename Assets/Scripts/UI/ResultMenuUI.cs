@@ -19,6 +19,8 @@ public class ResultMenuUI : MonoBehaviour
     [SerializeField] private LocalizedString m_reasonBothLostLives;
     [SerializeField] private LocalizedString m_reasonOpponentLeft;
     [SerializeField] private LocalizedString m_reasonYouLeft;
+    [SerializeField] private LocalizedString m_reasonOpponentBlocksDestroyed = new LocalizedString("UI_table", "result_reason_opponentBlocksDestroyed");
+    [SerializeField] private LocalizedString m_reasonYouBlocksDestroyed = new LocalizedString("UI_table", "result_reason_youBlocksDestroyed");
     [SerializeField] private bool m_debugMode = false;
 
     private bool m_isLeaving;
@@ -46,6 +48,11 @@ public class ResultMenuUI : MonoBehaviour
                 m_reasonText.StringReference = MatchResultData.IsDraw
                     ? m_reasonBothLostLives
                     : MatchResultData.IsWinner ? m_reasonOpponentLostLives : m_reasonYouLostLives;
+                break;
+            case MatchEndReason.BlocksDestroyed:
+                m_reasonText.StringReference = MatchResultData.IsDraw
+                    ? m_reasonBothLostLives
+                    : MatchResultData.IsWinner ? m_reasonOpponentBlocksDestroyed : m_reasonYouBlocksDestroyed;
                 break;
             case MatchEndReason.OpponentDisconnected:
                 m_reasonText.StringReference = m_reasonOpponentLeft;

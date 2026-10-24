@@ -1914,6 +1914,7 @@ GameObject:
   - component: {fileID: 1301508709}
   - component: {fileID: 1301508708}
   - component: {fileID: 1301508714}
+  - component: {fileID: 1301508715}
   m_Layer: 5
   m_Name: SettingsCanvas
   m_TagString: Untagged
@@ -4206,8 +4207,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::DisplaySettingsUI
   m_displayModeDropdown: {fileID: 2053594435}
   m_resolutionDropdown: {fileID: 1224694244}
-  m_minWidth: 1024
-  m_minHeight: 720
+  m_minWidth: 640
+  m_minHeight: 480
 --- !u!1 &1342102335
 GameObject:
   m_ObjectHideFlags: 0
@@ -5371,3 +5372,266 @@ SceneRoots:
   - {fileID: 812429688}
   - {fileID: 1301508713}
   - {fileID: 878853947}
+--- !u!114 &1301508715
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1301508707}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 108596713ab06244e98951ba5133a90b, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::ResolutionProfileLayout
+  m_lowTexts:
+  - m_target: {fileID: 1043837273}
+    m_fontSizeMin: 30
+    m_fontSizeMax: 40
+  - m_target: {fileID: 881143875}
+    m_fontSizeMin: 24
+    m_fontSizeMax: 30
+  - m_target: {fileID: 1257282821}
+    m_fontSizeMin: 24
+    m_fontSizeMax: 30
+  - m_target: {fileID: 654394978}
+    m_fontSizeMin: 24
+    m_fontSizeMax: 28
+  - m_target: {fileID: 867664941}
+    m_fontSizeMin: 24
+    m_fontSizeMax: 30
+  - m_target: {fileID: 1342102336}
+    m_fontSizeMin: 24
+    m_fontSizeMax: 30
+  - m_target: {fileID: 936028987}
+    m_fontSizeMin: 24
+    m_fontSizeMax: 28
+  - m_target: {fileID: 951053563}
+    m_fontSizeMin: 24
+    m_fontSizeMax: 30
+  - m_target: {fileID: 21028377}
+    m_fontSizeMin: 24
+    m_fontSizeMax: 30
+  - m_target: {fileID: 1660745531}
+    m_fontSizeMin: 24
+    m_fontSizeMax: 28
+  m_canvasScaler: {fileID: 1301508711}
+  m_lowReferenceResolution: {x: 1280, y: 720}
+  m_lowRects:
+  - m_target: {fileID: 1575267246}
+    m_anchorMin: {x: 0.5, y: 1}
+    m_anchorMax: {x: 0.5, y: 1}
+    m_pivot: {x: 0.5, y: 1}
+    m_anchoredPosition: {x: 0, y: -8}
+    m_sizeDelta: {x: 540, y: 180}
+    m_scale: 1
+  - m_target: {fileID: 1591348258}
+    m_anchorMin: {x: 0.5, y: 0}
+    m_anchorMax: {x: 0.5, y: 0}
+    m_pivot: {x: 0.5, y: 0}
+    m_anchoredPosition: {x: 0, y: 12}
+    m_sizeDelta: {x: 840, y: 508}
+    m_scale: 1
+  - m_target: {fileID: 1043837271}
+    m_anchorMin: {x: 0.5, y: 0}
+    m_anchorMax: {x: 0.5, y: 0}
+    m_pivot: {x: 0.5, y: 0.5}
+    m_anchoredPosition: {x: 0, y: 470}
+    m_sizeDelta: {x: 420, y: 56}
+    m_scale: 1
+  - m_target: {fileID: 1136665386}
+    m_anchorMin: {x: 0.5, y: 0}
+    m_anchorMax: {x: 0.5, y: 0}
+    m_pivot: {x: 0.5, y: 0}
+    m_anchoredPosition: {x: 0, y: 48}
+    m_sizeDelta: {x: 300, y: 56}
+    m_scale: 1
+  - m_target: {fileID: 881143873}
+    m_anchorMin: {x: 0.5, y: 0}
+    m_anchorMax: {x: 0.5, y: 0}
+    m_pivot: {x: 0.5, y: 0.5}
+    m_anchoredPosition: {x: -200, y: 390}
+    m_sizeDelta: {x: 340, y: 56}
+    m_scale: 1
+  - m_target: {fileID: 1163661072}
+    m_anchorMin: {x: 0.5, y: 0}
+    m_anchorMax: {x: 0.5, y: 0}
+    m_pivot: {x: 0.5, y: 0.5}
+    m_anchoredPosition: {x: 195, y: 390}
+    m_sizeDelta: {x: 380, y: 52}
+    m_scale: 1
+  - m_target: {fileID: 1257282823}
+    m_anchorMin: {x: 0, y: 0}
+    m_anchorMax: {x: 1, y: 1}
+    m_pivot: {x: 0.5, y: 0.5}
+    m_anchoredPosition: {x: -12, y: 0}
+    m_sizeDelta: {x: -52, y: -8}
+    m_scale: 1
+  - m_target: {fileID: 1688910584}
+    m_anchorMin: {x: 1, y: 0.5}
+    m_anchorMax: {x: 1, y: 0.5}
+    m_pivot: {x: 0.5, y: 0.5}
+    m_anchoredPosition: {x: -22, y: 0}
+    m_sizeDelta: {x: 28, y: 28}
+    m_scale: 1
+  - m_target: {fileID: 340364525}
+    m_anchorMin: {x: 0, y: 0}
+    m_anchorMax: {x: 1, y: 0}
+    m_pivot: {x: 0.5, y: 1}
+    m_anchoredPosition: {x: 0, y: 2}
+    m_sizeDelta: {x: 0, y: 140}
+    m_scale: 1
+  - m_target: {fileID: 1731560473}
+    m_anchorMin: {x: 0, y: 1}
+    m_anchorMax: {x: 1, y: 1}
+    m_pivot: {x: 0.5, y: 1}
+    m_anchoredPosition: {x: 0, y: 0}
+    m_sizeDelta: {x: 0, y: 52}
+    m_scale: 1
+  - m_target: {fileID: 19848318}
+    m_anchorMin: {x: 0, y: 0.5}
+    m_anchorMax: {x: 1, y: 0.5}
+    m_pivot: {x: 0.5, y: 0.5}
+    m_anchoredPosition: {x: 0, y: 0}
+    m_sizeDelta: {x: 0, y: 44}
+    m_scale: 1
+  - m_target: {fileID: 828629752}
+    m_anchorMin: {x: 0, y: 0.5}
+    m_anchorMax: {x: 0, y: 0.5}
+    m_pivot: {x: 0.5, y: 0.5}
+    m_anchoredPosition: {x: 18, y: 0}
+    m_sizeDelta: {x: 28, y: 28}
+    m_scale: 1
+  - m_target: {fileID: 654394980}
+    m_anchorMin: {x: 0, y: 0}
+    m_anchorMax: {x: 1, y: 1}
+    m_pivot: {x: 0.5, y: 0.5}
+    m_anchoredPosition: {x: 10, y: 0}
+    m_sizeDelta: {x: -50, y: -4}
+    m_scale: 1
+  - m_target: {fileID: 867664939}
+    m_anchorMin: {x: 0.5, y: 0}
+    m_anchorMax: {x: 0.5, y: 0}
+    m_pivot: {x: 0.5, y: 0.5}
+    m_anchoredPosition: {x: -200, y: 310}
+    m_sizeDelta: {x: 340, y: 56}
+    m_scale: 1
+  - m_target: {fileID: 2053594436}
+    m_anchorMin: {x: 0.5, y: 0}
+    m_anchorMax: {x: 0.5, y: 0}
+    m_pivot: {x: 0.5, y: 0.5}
+    m_anchoredPosition: {x: 195, y: 310}
+    m_sizeDelta: {x: 380, y: 52}
+    m_scale: 1
+  - m_target: {fileID: 1342102338}
+    m_anchorMin: {x: 0, y: 0}
+    m_anchorMax: {x: 1, y: 1}
+    m_pivot: {x: 0.5, y: 0.5}
+    m_anchoredPosition: {x: -12, y: 0}
+    m_sizeDelta: {x: -52, y: -8}
+    m_scale: 1
+  - m_target: {fileID: 713620062}
+    m_anchorMin: {x: 1, y: 0.5}
+    m_anchorMax: {x: 1, y: 0.5}
+    m_pivot: {x: 0.5, y: 0.5}
+    m_anchoredPosition: {x: -22, y: 0}
+    m_sizeDelta: {x: 28, y: 28}
+    m_scale: 1
+  - m_target: {fileID: 1929772963}
+    m_anchorMin: {x: 0, y: 0}
+    m_anchorMax: {x: 1, y: 0}
+    m_pivot: {x: 0.5, y: 1}
+    m_anchoredPosition: {x: 0, y: 2}
+    m_sizeDelta: {x: 0, y: 100}
+    m_scale: 1
+  - m_target: {fileID: 122190462}
+    m_anchorMin: {x: 0, y: 1}
+    m_anchorMax: {x: 1, y: 1}
+    m_pivot: {x: 0.5, y: 1}
+    m_anchoredPosition: {x: 0, y: 0}
+    m_sizeDelta: {x: 0, y: 52}
+    m_scale: 1
+  - m_target: {fileID: 195154853}
+    m_anchorMin: {x: 0, y: 0.5}
+    m_anchorMax: {x: 1, y: 0.5}
+    m_pivot: {x: 0.5, y: 0.5}
+    m_anchoredPosition: {x: 0, y: 0}
+    m_sizeDelta: {x: 0, y: 44}
+    m_scale: 1
+  - m_target: {fileID: 894049079}
+    m_anchorMin: {x: 0, y: 0.5}
+    m_anchorMax: {x: 0, y: 0.5}
+    m_pivot: {x: 0.5, y: 0.5}
+    m_anchoredPosition: {x: 18, y: 0}
+    m_sizeDelta: {x: 28, y: 28}
+    m_scale: 1
+  - m_target: {fileID: 936028989}
+    m_anchorMin: {x: 0, y: 0}
+    m_anchorMax: {x: 1, y: 1}
+    m_pivot: {x: 0.5, y: 0.5}
+    m_anchoredPosition: {x: 10, y: 0}
+    m_sizeDelta: {x: -50, y: -4}
+    m_scale: 1
+  - m_target: {fileID: 951053561}
+    m_anchorMin: {x: 0.5, y: 0}
+    m_anchorMax: {x: 0.5, y: 0}
+    m_pivot: {x: 0.5, y: 0.5}
+    m_anchoredPosition: {x: -200, y: 230}
+    m_sizeDelta: {x: 340, y: 56}
+    m_scale: 1
+  - m_target: {fileID: 1224694245}
+    m_anchorMin: {x: 0.5, y: 0}
+    m_anchorMax: {x: 0.5, y: 0}
+    m_pivot: {x: 0.5, y: 0.5}
+    m_anchoredPosition: {x: 195, y: 230}
+    m_sizeDelta: {x: 380, y: 52}
+    m_scale: 1
+  - m_target: {fileID: 21028379}
+    m_anchorMin: {x: 0, y: 0}
+    m_anchorMax: {x: 1, y: 1}
+    m_pivot: {x: 0.5, y: 0.5}
+    m_anchoredPosition: {x: -12, y: 0}
+    m_sizeDelta: {x: -52, y: -8}
+    m_scale: 1
+  - m_target: {fileID: 1624249163}
+    m_anchorMin: {x: 1, y: 0.5}
+    m_anchorMax: {x: 1, y: 0.5}
+    m_pivot: {x: 0.5, y: 0.5}
+    m_anchoredPosition: {x: -22, y: 0}
+    m_sizeDelta: {x: 28, y: 28}
+    m_scale: 1
+  - m_target: {fileID: 806927903}
+    m_anchorMin: {x: 0, y: 0}
+    m_anchorMax: {x: 1, y: 0}
+    m_pivot: {x: 0.5, y: 1}
+    m_anchoredPosition: {x: 0, y: 2}
+    m_sizeDelta: {x: 0, y: 360}
+    m_scale: 1
+  - m_target: {fileID: 633235227}
+    m_anchorMin: {x: 0, y: 1}
+    m_anchorMax: {x: 1, y: 1}
+    m_pivot: {x: 0.5, y: 1}
+    m_anchoredPosition: {x: 0, y: 0}
+    m_sizeDelta: {x: 0, y: 52}
+    m_scale: 1
+  - m_target: {fileID: 1460729176}
+    m_anchorMin: {x: 0, y: 0.5}
+    m_anchorMax: {x: 1, y: 0.5}
+    m_pivot: {x: 0.5, y: 0.5}
+    m_anchoredPosition: {x: 0, y: 0}
+    m_sizeDelta: {x: 0, y: 44}
+    m_scale: 1
+  - m_target: {fileID: 2039680071}
+    m_anchorMin: {x: 0, y: 0.5}
+    m_anchorMax: {x: 0, y: 0.5}
+    m_pivot: {x: 0.5, y: 0.5}
+    m_anchoredPosition: {x: 18, y: 0}
+    m_sizeDelta: {x: 28, y: 28}
+    m_scale: 1
+  - m_target: {fileID: 1660745533}
+    m_anchorMin: {x: 0, y: 0}
+    m_anchorMax: {x: 1, y: 1}
+    m_pivot: {x: 0.5, y: 0.5}
+    m_anchoredPosition: {x: 10, y: 0}
+    m_sizeDelta: {x: -50, y: -4}
+    m_scale: 1

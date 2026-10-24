@@ -1135,6 +1135,7 @@ GameObject:
   - component: {fileID: 2027122537}
   - component: {fileID: 2027122536}
   - component: {fileID: 2027122534}
+  - component: {fileID: 2027122539}
   m_Layer: 5
   m_Name: ResultCanvas
   m_TagString: Untagged
@@ -1326,3 +1327,19 @@ SceneRoots:
   - {fileID: 1829280217}
   - {fileID: 2027122535}
   - {fileID: 1642493655}
+--- !u!114 &2027122539
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2027122533}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 108596713ab06244e98951ba5133a90b, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::ResolutionProfileLayout
+  m_lowTexts: []
+  m_canvasScaler: {fileID: 2027122537}
+  m_lowReferenceResolution: {x: 1280, y: 720}
+  m_lowRects: []

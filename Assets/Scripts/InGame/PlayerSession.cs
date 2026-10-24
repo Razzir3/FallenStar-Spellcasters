@@ -192,6 +192,14 @@ public class PlayerSession : NetworkBehaviour
             return;
         }
 
+        if ((_intended == GamePhase.PlayerAction || _intended == GamePhase.ResolveCards) &&
+            GameMaster.Instance.m_activePlayer.Value.TryGet(out PlayerSession _active) && _active != this)
+        {
+            if (IsOwner && PlayerUI.Instance != null)
+                PlayerUI.Instance.ShowOpponentTurn();
+            return;
+        }
+
         PruneLocalCardSelection();
 
         m_selectedCardsToPlayID =ConvertCardsToNetworkId(m_selectedCardsToPlay);
@@ -800,6 +808,8 @@ public class PlayerSession : NetworkBehaviour
         if (m_selectedCard == null)
         {
             Debug.LogWarning("No card selected for control package.");
+            if (IsOwner && PlayerUI.Instance != null)
+                PlayerUI.Instance.ShowSelectCardFirst();
             return false;
         }
 
@@ -1083,6 +1093,16 @@ public class PlayerSession : NetworkBehaviour
                 CardInputServerRpc(package);
                 m_currentCardControllPackage = CardControllPackage.CreateEmpty(0);
             }
+            else if (GameMaster.Instance.m_gamePhase.Value == GamePhase.PlayerAction &&
+                     GameMaster.Instance.m_activePlayer.Value.TryGet(out PlayerSession _active) && _active != this)
+            {
+                if (IsOwner && PlayerUI.Instance != null)
+                    PlayerUI.Instance.ShowOpponentTurn();
+            }
+        }
+        else if (IsOwner && PlayerUI.Instance != null)
+        {
+            PlayerUI.Instance.ShowConfirmTargetFirst();
         }
     }
     private bool CheckPackage(CardControllPackage package)

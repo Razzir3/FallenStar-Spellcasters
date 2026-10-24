@@ -321,6 +321,58 @@ MonoBehaviour:
     m_Localized: "\u30A6\u30A3\u30F3\u30C9\u30A6"
     m_Metadata:
       m_Items: []
+  - m_Id: 50769044537409539
+    m_Localized: "ホストとの接続が切れました。"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50769044537409540
+    m_Localized: "試合を続行できなかったため、中止されました。"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50769044537409541
+    m_Localized: "サインインできませんでした。接続を確認して、もう一度お試しください。"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50769044537409542
+    m_Localized: "ロビーを作成できませんでした。接続を確認して、もう一度お試しください。"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50769044537409543
+    m_Localized: "ロビーに参加できませんでした。満員か、閉じられた可能性があります。"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50769044537409544
+    m_Localized: "ロビー一覧を読み込めませんでした。もう一度お試しください。"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50769044537409545
+    m_Localized: "試合を開始できませんでした。両方のプレイヤーが接続している必要があります。もう一度お試しください。"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50769044537409546
+    m_Localized: "まず下の列からプレイしたカードを選んでください。"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50769044537409547
+    m_Localized: "送信の前に対象を選んで「確認」を押してください。"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50769044537409548
+    m_Localized: "相手の番です。"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50769044537409549
+    m_Localized: "山札が尽きたため、新しい山札を作りました。"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50769044537409550
+    m_Localized: "相手のブロックがすべて破壊されました。"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50769044537409551
+    m_Localized: "あなたのブロックがすべて破壊されました。"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds:

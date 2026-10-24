@@ -255,6 +255,7 @@ public partial class GameMaster
         m_graveyard.Clear();
 
         CreateDeck(m_refillDeckMaxRarity);
+        DeckRefilledClientRpc();
 
         if (m_debugMode)
             Debug.Log($"Deck refilled: {m_deck.Count} cards.");
@@ -262,6 +263,12 @@ public partial class GameMaster
         if (m_deck.Count == 0)
             Debug.LogWarning("Refill deck is empty.");
     }
+    [ClientRpc]
+    private void DeckRefilledClientRpc()
+    {
+        PlayerUI.Instance?.ShowDeckRefilled();
+    }
+
     /// <summary>
     /// Randomly picks Attack/Defence/Draw targets of 20/30/30, 30/20/30 or 30/30/20,
     /// fills each section filtered by maxRarity, then shuffles the deck.

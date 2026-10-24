@@ -10,11 +10,24 @@ public class LoginUI : MonoBehaviour
             return;
         }
 
-        await AuthManager.Instance.SingInAnonymous();
+        bool _signedIn = false;
+        try
+        {
+            await AuthManager.Instance.SingInAnonymous();
+            _signedIn = AuthManager.Instance.IsSignedIn;
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogException(e);
+        }
 
-        if(AuthManager.Instance.IsSignedIn)
+        if(_signedIn)
         {
             SceneFlowManager.Instance.LoadMainMenuScene();
+        }
+        else
+        {
+            PlayerNotice.Post("notice_sign_in_failed");
         }
     }
 

@@ -1,7 +1,7 @@
 # Game Loop, Phases and Match State
 
-- **Updated:** 2026-10-23 (header refresh, Issue Report #13). Full refresh: 2026-10-20 (TASK-N8). First audit: 2026-10-18. Each task since then updated the sections it touched.
-- **Code baseline:** commit `6d89a09` **plus the uncommitted working tree** with N54–N58 and N32–N35, reviewed in [Issue Report #13](../Reports/2026-10-23_IssueReport-13.md). The owner's manual checklist for it is pending.
+- **Updated:** 2026-10-24 (Codex's TASK-N59_N61_F1, TASK-F4_F6_N36 and TASK-UI7; header refresh in Issue Report #15). Full refresh: 2026-10-20 (TASK-N8). First audit: 2026-10-18. Each task since then updated the sections it touched.
+- **Code baseline:** commit `ff8a9dd` plus the uncommitted implementation of TASK-N59_N61_F1, TASK-F4_F6_N36 and TASK-UI7, reviewed in [Issue Report #15](../Reports/2026-10-24_IssueReport-15.md) §1. The owner's checklist for it is pending.
 - **Method:** static code reading. Runtime evidence is named where it exists. Nothing here was run for this update.
 - Tags **[Confirmed] / [Unfinished] / [Unknown] / [Risk]** are defined in [Architecture.md](Architecture.md).
 - File and method names are given instead of line numbers.
@@ -80,8 +80,8 @@ StartNewGame → RunGuarded(GameLoop())
 GameLoop()
  while !IsGameFinished():
    RoundBreakPhase      phase = RoundBreak; mana growth; wait m_roundBreakTime (5 s)
-   DrawCardPhase        phase stays RoundBreak; m_startHandCards (2) × players:
-                        DrawCard, then an interruptible m_cardDrawDelay (0.8 s)
+   DrawCardPhase        phase = DrawCards; m_startHandCards (2) × players:
+                        draw in order 0,1,0,1 on the deadline schedule, 0.8 s apart
    CardSelectionPhase   phase = CardSelection; m_selectionPhaseId++; new PlayerTurnSelection
                         per player; wait for both confirms or m_cardSelectionTime (60 s);
                         BuildTurnOrderByCardCost
@@ -90,15 +90,15 @@ GameLoop()
                           stop if IsGameFinished
                         m_activePlayer = null
  winner = the only player with a character or lives > 0 (else null = draw)
- EndMatch(winner, LivesDepleted)
+ EndMatch(winner, m_finishReason)
 ```
 
 Each phase checks `IsGameFinished` first, then a death (`m_externalDeathDetected || IsAnyPlayerDead`), then finish again. The outer loop also checks finish between phases.
 
 ### 3.1 Countdown (L1)
 
-- The loop counts time in private `m_phaseElapsed` against `m_phaseDuration`. Clients see one server-written NetworkVariable, `m_phaseEndServerTime` (a `double` in server time).
-- `StartPhaseCountdown(duration, alreadyElapsed)` is called at the start of RoundBreak, drawing (duration = draws × delay), CardSelection, PlayerAction and each respawn wait. It's also called when a rejected selection resets the timer (§3.4), and on resume after a death pause with the time already used. Nothing writes the deadline each frame.
+- Server loops and clients share `m_phaseEndServerTime`, a server-written `double` deadline. Every timed loop checks `PhaseTimeLeft()` (deadline minus ServerTime) once per frame. There is no separately accumulated frame timer (N36).
+- `StartPhaseCountdown(duration)` is called at the start of RoundBreak, drawing (duration = draws × delay), CardSelection, PlayerAction and each respawn wait. It's also called when a rejected selection resets the timer (§3.4), and on resume after a death pause with only the remaining seconds. Drawing catches up overdue cards after a hitch and ends at the shared deadline. Nothing writes the deadline each frame.
 - `ClearPhaseCountdown` runs in `EndMatch`, `AbortMatch` and `StartNewGame`.
 - `GetPhaseSecondsLeft()` = ceiling of (deadline − `NetworkManager.ServerTime.Time`), never below 0. `GameAnnouncerUI` shows it as two digits.
 
@@ -113,7 +113,7 @@ Each phase checks `IsGameFinished` first, then a death (`m_externalDeathDetected
 ### 3.3 Drawing, deck refill and hand limit
 
 - `DrawCard(session)` (`GameMaster.Card.cs`) rejects a null session and skips null cards at the front of the deck.
-- **H2:** an empty deck calls `RefillDeck` once per draw. It despawns or destroys the graveyard cards, removes them from `m_spawnedCards`, then calls `CreateDeck(m_refillDeckMaxRarity)` (default `Rare`). Cards in hands and on boards stay. If the deck is still empty, the draw logs a warning and does nothing.
+- **H2:** an empty deck calls `RefillDeck` once per draw. It despawns or destroys the graveyard cards, removes them from `m_spawnedCards`, then calls `CreateDeck(m_refillDeckMaxRarity)` (default `Rare`) and `DeckRefilledClientRpc` so each peer shows the HUD notice, including an empty-refill warning case. Cards in hands and on boards stay. If the deck is still empty, the draw logs a warning and does nothing.
 - A drawn card goes to `m_handCards`, gets `SetOwner`, and its identity goes **only to its owner** through `SendCardDataClientRpc`.
 - **M15:** after each successful draw, `DiscardOldestOverHandLimit` keeps at most `m_maxHandCards` (10; 0 or less = no limit) cards that aren't committed to the board. The oldest extra cards go through `MoveCardOnGraveyard`. The owner gets one `HandLimitDiscardClientRpc` (message `hand_limit_discard`).
 - Deck building: see [Architecture.md §6](Architecture.md#6-cards-deck-and-effects).
@@ -146,18 +146,18 @@ Each frame, until the timeout or until the active player has confirmed with an e
 
 - `HandleDeathPausingCurrentPhase` clears `m_externalDeathDetected` and finds the first dead player (`GetCharacter() == null`, `TeamId != -1`, lives > 0).
   - No blocks left (`GetRespawnPoints` empty): `m_lifeCurrent = -1`, no pause. The player is out.
-  - Otherwise it saves the phase, `m_phaseElapsed`, `m_phaseDuration` and `m_activePlayer`, then runs `WaitForRespawnIfNeeded`. If the match goes on, it restores all of them and restarts the countdown with the remaining time.
+  - Otherwise it saves the phase, non-negative `PhaseTimeLeft()` and `m_activePlayer`, then runs `WaitForRespawnIfNeeded`. If the match goes on, it restores all of them and restarts the countdown with the remaining time.
 - `WaitForRespawnIfNeeded`:
   - Sets `RespawnWait`, `m_isWaitingRespawn` and `m_waitingRespawnPlayer`, and starts a `m_respawnWaitTime` (30 s) countdown.
   - Waits for `HandlePlayerRespawnPoint` (the waiting player confirms one of their own spawned blocks with a spawn point).
   - Uses the chosen block's `SpawnPoint` if it's still valid, otherwise a random valid own block. None left: life = −1.
   - `RespawnCharacter` (2.5 units above the point), then the phase becomes `ResolveCards` until the pause helper restores the saved phase.
-- Drawing waits in an interruptible per-frame delay, so a death during the delay is noticed on the next frame, and the pause doesn't eat the delay.
+- Drawing checks death each frame and resumes with the saved seconds left. Its remaining draws retain their 0.8 s spacing; a long hitch deals overdue cards on the first returning frame (F4/N36).
 - Mana growth, draws already made, accepted selections and timer-reset counters are not repeated after a pause.
 
 ### 3.7 Death, finish and the win rule [Confirmed]
 
-- **HP ≤ 0** (`UpdatePlayerHP`): lose one life, `DespawnCharacter`, free the spawn point, clear the character reference and `CharacterObjectId`. A character without a session logs an error and returns (M6).
+- **HP ≤ 0** (`UpdatePlayerHP`): lose one life and call shared `RemoveCharacter`: despawn, free the spawn point, clear the character reference and `CharacterObjectId`. A character without a session logs an error and returns (M6).
 - **Lava** (`LavaKillZone`, server only): `ServerKillPlayerByHazard` sets HP to 0, runs `UpdatePlayerHP` and sets `m_externalDeathDetected`. Already-killed characters are tracked by instance (a `HashSet<PlayerController>`, destroyed entries pruned), not by network ID (M3).
 - **Block HP ≤ 0** (`UpdateBlockHp`): `PlayerSession.DeleteBlock`, then `Despawn`. A character standing on it should fall into the lava (physics, **[Unknown]**).
 - **Finished** (`IsGameFinished`): at most one player (non-null, `TeamId != -1`) still has a character or lives > 0. One allocation-free loop with no side effects (L3).
@@ -165,7 +165,7 @@ Each frame, until the timeout or until the active player has confirmed with an e
   - by losing all 3 lives (cards or lava)
   - by dying with no block left to respawn on (life = −1)
   - by pressing Leave match, or by disconnecting during a match (§3.8)
-- Destroying all blocks doesn't end the match by itself. It counts at the player's next death. **[Unfinished]** as a direct rule.
+- Destroying the last spawned block immediately eliminates its owner: lives −1, character removed, point freed, finish reason `BlocksDestroyed`. The loop's existing finish checks end the match for the other player. New matches reset the reason to `LivesDepleted` (F6).
 - If both players are out at once, `winner` is null and the result is a draw.
 
 ### 3.8 Match end, abort and the guarded runner
@@ -184,9 +184,10 @@ Each frame, until the timeout or until the active player has confirmed with an e
   - `LivesDepleted` (normal end)
   - `OpponentDisconnected`: `SessionManager.OnClientDisconnected` → `GameMaster.HandlePlayerLeft`. The leaver is removed from `m_players`.
   - `Surrendered`: `HandlePlayerSurrender`. The leaver stays in `m_players`.
+  - `BlocksDestroyed`: last-block elimination sets `m_finishReason`; result text distinguishes the winner and loser.
   - Both handlers work only while the loop runs and the phase isn't `None` or `GameOver`. Each stops the loop and picks the other valid player. If there is none: `AbortMatch("player_left_no_winner")` or `AbortMatch("player_surrendered_no_winner")`.
 - **N17:** `SessionManager.OnClientDisconnected` clears the HUD only when the local client itself disconnected. A host watching the opponent forfeit keeps its HUD until `ResultScene`.
-- **`AbortMatch(reason)`** (server, once): clears the countdown, sets `None`, logs an error, and calls `MultiplayerManager.Disconnect`. That deletes the lobby (host), shuts down and returns to `LobbyScene`. No result is shown.
+- **`AbortMatch(reason)`** (server, once): clears the countdown, sets `None`, logs an error, and broadcasts `MatchAbortedClientRpc` to mark the match cancelled, then calls `MultiplayerManager.Disconnect`. That deletes the lobby (host), shuts down and returns to `LobbyScene` with a notice. No result is shown; delivery is best effort and a disconnected client falls back to the connection-lost notice.
 - `ResultMenuUI` picks the title and reason text:
   - `LivesDepleted`: `result_reason_youLostLives` / `opponentLostLives` / `bothLostLives`
   - `OpponentDisconnected`: `result_reason_opponentLeft`
@@ -194,7 +195,7 @@ Each frame, until the timeout or until the active player has confirmed with an e
 
 ### 3.9 Unused or transient phases
 
-- `DrawCards` and `RoundEnd` are never assigned. **[Confirmed]**
+- `DrawCards` is assigned during dealing (F4); `RoundEnd` is never assigned. **[Confirmed]**
 - `ResolveCards` is only a short transient value at the end of `WaitForRespawnIfNeeded`. **[Confirmed]**
 - `GameAnnouncerUI` and `UI_table` have keys for all 9 phases (`Phase.*`).
 
@@ -216,6 +217,8 @@ Each frame, until the timeout or until the active player has confirmed with an e
 | Card identity | — | `GameMaster.SendCardDataClientRpc(cardId)`: to the owner on a draw, to everyone on board placement | `NetworkCard.RepairCardData` → `CardDatabase.TryGetCard`; then `CardWorldViewManager.RefreshAllSessions` and `PlayerUI.OnCardDataReceived` | Unknown IDs warn and keep the old data (M14) |
 | Hand-limit / rejection notices | — | `HandLimitDiscardClientRpc`, `SelectionRejectedClientRpc` (owner only) | — | — |
 | Match result | — | `MatchEndedClientRpc(winnerClientId, reason)` | every peer → `LeaveMatchToResultScene` | — |
+| Match aborted notice | — | `GameMaster.MatchAbortedClientRpc()` | every peer → `MultiplayerManager.MarkMatchCancelled` → `PlayerNotice` | Server sends; best effort before shutdown |
+| Deck refill notice | — | `GameMaster.DeckRefilledClientRpc()` | every peer → `PlayerUI.ShowDeckRefilled` | Server sends after deck creation |
 
 **Phase-tagged confirm (N21).** `ConfirmTurn` reads the phase once and sends it as `intendedPhase`. `IsConfirmForCurrentPhase` accepts only:
 - CardSelection → CardSelection
@@ -238,15 +241,15 @@ A mismatch is logged in debug mode and ignored, with no suspicion and no mana fe
 
 - **`PlayerUI.Update`** binds to `SessionManager.LocalPlayer` lazily.
   - It subscribes to the three card lists, `m_gamePhase` and `m_selectionPhaseId`, and unsubscribes in `ClearLocalUI` and `OnDestroy`. It clears the HUD once when the local player goes away (L6).
-  - Each frame it writes HP and lives (or the "dead" text when lives < 0). The mana labels are formatted only when a value or the locale changes.
+  - HP/lives/mana are formatted only on a value/state or locale change; dead selection cleanup still runs every frame (N35).
 - **`PlayerUI.UpdateCards`** rebuilds every `CardViewUI` on each list or phase change:
-  - None / RoundBreak / CardSelection show the hand.
+  - None / RoundBreak / DrawCards / CardSelection show the hand.
   - PlayerAction / ResolveCards show `m_boardPlayCards`.
   - RespawnWait and GameOver show nothing.
   - In CardSelection, `CreateCardView` restores the play/discard colours from the local lists.
   - `OnCardDataReceived` rebuilds only when a local hand or board card has no view yet.
   - UI3 deactivates old views before deferred `Destroy`, then adjusts the cached HorizontalLayoutGroup spacing to keep the rendered hand centered within its 1800-unit container (card width 200, maximum authored spacing 220). The hand center stays 300 reference units above the bottom. Clearing the local UI restores the spacing.
-- **`PlayerUI` messages** (`mana_not_enough`, `hand_limit_discard`) last 2 unscaled seconds and refresh on a locale change.
+- **`PlayerUI` messages** (`mana_not_enough`, `hand_limit_discard`, and notices for selecting a card first, confirming a target first, the opponent's turn and a deck refill) last 2 unscaled seconds and refresh on a locale change (F1). Opponent-action Confirm Turn is suppressed locally without clearing selection; Send is suppressed by the existing target gate. Server checks and N21 phase tags remain unchanged.
 - **`CardWorldViewManager`** lays out `CardViewWorld` instances for every session's board.
   - It rebuilds on every board-list change and every `NetworkCard` location, rotation or face change.
   - In `Update` it drops sessions that left, were despawned or were destroyed, and registers new ones when the count changes (L6).
@@ -277,7 +280,7 @@ A mismatch is logged in debug mode and ignored, with no suspicion and no mana fe
 
 - Physics of falling after a block despawns, and the lava trigger (GL4).
 - Timing between `SendCardDataClientRpc` and the client-side spawn of the card ("NetworkCard … was not found" warning path).
-- The owner's manual checklist for N54–N58 and N32–N35 ([Issue Report #13](../Reports/2026-10-23_IssueReport-13.md) §5). The L1–N28 checks (countdown agreement, respawn resume, card texts on a locale switch) passed in the 2026-10-20 checklists (Issue Report #8).
+- N36 stall measurements now cover RoundBreak, CardSelection, PlayerAction and RespawnWait: baseline roughly 0.67–0.68 s late; the fixed deadline loops finish within one frame. Network-client display latency remains subject to NGO time estimation. The L1–N28 checks (countdown agreement, respawn resume, card texts on a locale switch) passed in the 2026-10-20 checklists (Issue Report #8).
 - `GameMasterPrefab.prefab` stores none of the Timing, Movement or GameRules fields, so the C# defaults above are the real values. It stores `m_debugMode: 1`; in release builds that flag is forced off (L9). **[Confirmed]**
 
 ---

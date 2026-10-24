@@ -22,7 +22,8 @@ public enum MatchEndReason
 {
     LivesDepleted,
     OpponentDisconnected,
-    Surrendered
+    Surrendered,
+    BlocksDestroyed
 }
 
 public static class ListExtensions
@@ -114,15 +115,16 @@ public partial class GameMaster : NetworkBehaviour
     private bool m_isMatchEnded = false;
     private const ulong k_NoWinnerClientId = ulong.MaxValue;
 
-    private float m_phaseElapsed;
-    private float m_phaseDuration;
+    private MatchEndReason m_finishReason = MatchEndReason.LivesDepleted;
     public NetworkVariable<double> m_phaseEndServerTime = new NetworkVariable<double>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
-    private void StartPhaseCountdown(float duration, float alreadyElapsed = 0f)
+    private void StartPhaseCountdown(float duration)
     {
-        m_phaseDuration = duration;
-        m_phaseEndServerTime.Value = NetworkManager.ServerTime.Time + Mathf.Max(0f, duration - alreadyElapsed);
+        m_phaseEndServerTime.Value = NetworkManager.ServerTime.Time + Mathf.Max(0f, duration);
     }
+
+    // Server-side seconds left on the replicated countdown (can be negative).
+    private double PhaseTimeLeft() => m_phaseEndServerTime.Value - NetworkManager.ServerTime.Time;
 
     private void ClearPhaseCountdown()
     {
@@ -511,8 +513,15 @@ public partial class GameMaster : NetworkBehaviour
 
         if (MultiplayerManager.Instance != null)
         {
+            MatchAbortedClientRpc();
             MultiplayerManager.Instance.Disconnect();
         }
+    }
+
+    [ClientRpc]
+    private void MatchAbortedClientRpc()
+    {
+        MultiplayerManager.Instance?.MarkMatchCancelled();
     }
 
     public void StartNewGame()
@@ -527,6 +536,7 @@ public partial class GameMaster : NetworkBehaviour
 
         m_isAbortingMatch = false;
         m_isMatchEnded = false;
+        m_finishReason = MatchEndReason.LivesDepleted;
 
         if (m_gameCoroutine != null)
         {
@@ -562,7 +572,6 @@ public partial class GameMaster : NetworkBehaviour
         m_activePlayer.Value = default;
         m_waitingRespawnPlayer.Value = default;
 
-        m_phaseElapsed = 0f;
         ClearPhaseCountdown();
         m_gamePhase.Value = GamePhase.None;
 

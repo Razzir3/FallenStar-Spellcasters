@@ -117,24 +117,33 @@ public partial class GameMaster
         return _result;
     }
 
-    //todo
-    /*
-    private PlayerController GetCharacterByID(ulong networkObjectId)
+    private int CountSpawnedBlocks(PlayerSession session)
     {
-        PlayerController _result = null;
-
-        if (NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(networkObjectId, out NetworkObject _networkObject))
+        int _count = 0;
+        foreach (BlockController _block in session.GetSessionBlock())
         {
-            try
-            {
-                _result = _networkObject.GetComponent<PlayerController>();
-            }
-            catch (System.Exception e)
-            {
-                Debug.LogError(e);
-            }
+            if (_block != null && _block.NetworkObject != null && _block.NetworkObject.IsSpawned)
+                _count++;
         }
-        return _result;
+        return _count;
     }
-    */
+
+    // Shared with normal HP death: despawn the character and free its point.
+    private void RemoveCharacter(PlayerSession session)
+    {
+        DespawnCharacter(session);
+        SpawnPoint _spawnPoint = session.GetSpawnPoint();
+        if (_spawnPoint != null) _spawnPoint.IsOccupied = false;
+        session.SetCharacter(null);
+        session.CharacterObjectId.Value = 0;
+    }
+
+    private void EliminatePlayerByBlocks(PlayerSession session)
+    {
+        if (!IsServer || session == null || session.m_lifeCurrent.Value < 0) return;
+        m_finishReason = MatchEndReason.BlocksDestroyed;
+        session.m_lifeCurrent.Value = -1;
+        if (session.GetCharacter() != null) RemoveCharacter(session);
+        if (m_debugMode) Debug.Log($"GameMaster: client {session.OwnerClientId} lost all blocks.");
+    }
 }

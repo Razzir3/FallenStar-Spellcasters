@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro;
 
 [DefaultExecutionOrder(-100)]
 public class ResolutionProfileLayout : MonoBehaviour
@@ -17,6 +18,15 @@ public class ResolutionProfileLayout : MonoBehaviour
         public float m_scale = 1f;
     }
 
+    [Serializable]
+    public class LowText
+    {
+        public TMP_Text m_target;
+        public float m_fontSizeMin;
+        public float m_fontSizeMax;
+    }
+
+    [SerializeField] private LowText[] m_lowTexts = Array.Empty<LowText>();
     [SerializeField] private CanvasScaler m_canvasScaler;
     [SerializeField] private Vector2 m_lowReferenceResolution;
     [SerializeField] private LowRect[] m_lowRects = Array.Empty<LowRect>();
@@ -27,6 +37,13 @@ public class ResolutionProfileLayout : MonoBehaviour
         public Vector3 m_localScale;
     }
 
+    private struct AuthoredText
+    {
+        public bool m_enableAutoSizing;
+        public float m_fontSizeMin, m_fontSizeMax, m_fontSize;
+    }
+
+    private AuthoredText[] m_authoredTexts;
     private AuthoredRect[] m_authoredRects;
     private Vector2 m_authoredReferenceResolution;
     private bool m_isLow;
@@ -54,8 +71,23 @@ public class ResolutionProfileLayout : MonoBehaviour
                 m_sizeDelta = _target.sizeDelta, m_localScale = _target.localScale
             };
         }
+        m_authoredTexts = new AuthoredText[m_lowTexts.Length];
+        for (int _index = 0; _index < m_lowTexts.Length; _index++)
+        {
+            TMP_Text _target = m_lowTexts[_index]?.m_target;
+            if (_target == null)
+            {
+                _hasMissingTarget = true;
+                continue;
+            }
+            m_authoredTexts[_index] = new AuthoredText {
+                m_enableAutoSizing = _target.enableAutoSizing,
+                m_fontSizeMin = _target.fontSizeMin, m_fontSizeMax = _target.fontSizeMax,
+                m_fontSize = _target.fontSize
+            };
+        }
         if (_hasMissingTarget)
-            Debug.LogWarning("ResolutionProfileLayout: missing rectangle targets are skipped.", this);
+            Debug.LogWarning("ResolutionProfileLayout: missing rectangle or text targets are skipped.", this);
 
         ApplyProfile(UiResolutionProfile.IsLow(Screen.width));
     }
@@ -86,6 +118,34 @@ public class ResolutionProfileLayout : MonoBehaviour
             _target.anchoredPosition = isLow ? _low.m_anchoredPosition : _authored.m_anchoredPosition;
             _target.sizeDelta = isLow ? _low.m_sizeDelta : _authored.m_sizeDelta;
             _target.localScale = isLow ? new Vector3(_low.m_scale, _low.m_scale, 1f) : _authored.m_localScale;
+        }
+
+        for (int _index = 0; _index < m_lowTexts.Length; _index++)
+        {
+            LowText _low = m_lowTexts[_index];
+            if (_low?.m_target == null)
+                continue;
+            TMP_Text _target = _low.m_target;
+            AuthoredText _authored = m_authoredTexts[_index];
+            _target.enableAutoSizing = _authored.m_enableAutoSizing;
+            if (isLow)
+            {
+                if (_authored.m_enableAutoSizing)
+                {
+                    _target.fontSizeMin = _low.m_fontSizeMin;
+                    _target.fontSizeMax = _low.m_fontSizeMax;
+                }
+                else
+                {
+                    _target.fontSize = _low.m_fontSizeMax;
+                }
+            }
+            else
+            {
+                _target.fontSizeMin = _authored.m_fontSizeMin;
+                _target.fontSizeMax = _authored.m_fontSizeMax;
+                _target.fontSize = _authored.m_fontSize;
+            }
         }
     }
 }

@@ -1,7 +1,7 @@
 # Class Dependencies and Regression Points
 
-- **Updated:** 2026-10-23 (header refresh, Issue Report #13). Full refresh: 2026-10-20 (TASK-N8). First audit: 2026-10-18. Each task since then updated the sections it touched.
-- **Code baseline:** commit `6d89a09` **plus the uncommitted working tree** with N54–N58 and N32–N35, reviewed in [Issue Report #13](../Reports/2026-10-23_IssueReport-13.md). The owner's manual checklist for it is pending.
+- **Updated:** 2026-10-24 (Codex's TASK-N59_N61_F1, TASK-F4_F6_N36 and TASK-UI7; header refresh in Issue Report #15). Full refresh: 2026-10-20 (TASK-N8). First audit: 2026-10-18. Each task since then updated the sections it touched.
+- **Code baseline:** commit `ff8a9dd` plus the uncommitted implementation of TASK-N59_N61_F1, TASK-F4_F6_N36 and TASK-UI7, reviewed in [Issue Report #15](../Reports/2026-10-24_IssueReport-15.md) §1. The owner's checklist for it is pending.
 - **Method:** static reading. Every edge below was found as a real call, field access or event subscription in code, not inferred from names.
 - Tags are defined in [Architecture.md](Architecture.md).
 
@@ -21,7 +21,8 @@
 | `LobbyListItemUI`, `LobbyPlayerItemUI` | `UiPrefab/LobbyListItemPrefab`, `LobbyPlayerItemPrefab` |
 | `SessionManager` | `SessionManager.prefab` → in-scene instance in `GameScene` |
 | `PlayerUI`, `ConfirmTargetButtonUI`, `ConfirmSendButton` (class `ConfirmSendButtonUI1`), `LeaveMatchUI` | `UiPrefab/PlayerUIPrefab` → in-scene instance in `GameScene` |
-| `ResolutionProfileLayout` / `UiResolutionProfile` | `PlayerUIPrefab` local layout / static width threshold; parent `CanvasScaler` is resolved at runtime |
+| `ResolutionProfileLayout` / `UiResolutionProfile` | Gameplay HUD plus five menu canvases, LobbyListItemPrefab and LobbyPlayerItemPrefab's role label; local rectangle/font profiles and static width threshold |
+| `NoticeUI` / `PlayerNotice` | LoginScene and LobbyScene NoticePanel / static time-windowed notice store |
 | `CardWorldViewManager` | `CardWorldManagerPrefab` → `GameScene` |
 | `PlayerCardWorldArea` (file `PlayerCardfWorldArea.cs`) | `PlayerWorldCardAreaPrefab` ×2 in `GameScene` (`m_sessionSearchId` 0 and 1) |
 | `SpawnPoint` | `SpawnPoint.prefab`: ×2 in `GameScene` (`m_teamId` 0 and 1), and as a child of `BlockBody` |
@@ -195,6 +196,7 @@ graph TD
 - N3, N26 and L1 added `GameMaster` NetworkVariables.
 - N21 changed the confirm RPC.
 - L10 removed `SendToClientRpc`.
+- F1 adds `MatchAbortedClientRpc` and `DeckRefilledClientRpc`; F6 appends `MatchEndReason.BlocksDestroyed`.
 
 Peers on different builds won't work together.
 
@@ -246,7 +248,7 @@ Direct dependencies (`Packages/manifest.json`):
 | `com.unity.test-framework` | 1.6.0 | Not used by any test in the repo yet |
 
 - **VisualScripting was removed** by L10. Its only use was `ConvertTo<int>()` in the heal branch, now `System.Convert.ToInt32`: same rounding, checked by Codex for 7 values.
-- **Localization assets** (`Assets/Localization/`): `UI_table` (69 keys) and `Cards` (8 keys), each with en/ru/ja tables, plus the three locales and `Localization Settings.asset`.
+- **Localization assets** (`Assets/Localization/`): `UI_table` (86 keys) and `Cards` (8 keys), each with en/ru/ja tables, plus the three locales and `Localization Settings.asset`.
 - **Font asset:** `Assets/Fonts/MPLUSRounded1c-Medium SDF.asset` is a dynamic TMP font that every TMP text uses.
   - Its source font stays referenced, and "Clear Dynamic Data On Build" is on (N28).
   - Editor runs add glyphs to it. Per `AGENTS.md`, restore it before committing unless the task changes the font settings.
@@ -260,24 +262,27 @@ Each item is a place where a change is likely to break another system. These are
 
 | # | Area | Why fragile | Check after any change |
 |---|---|---|---|
-| RP1 | `GamePhase` enum | Sent as an int in a NetworkVariable. Used by `PlayerUI`, `GameAnnouncerUI` (its `switch` **throws** on unknown values), `HandleConfirmTurn` / `IsConfirmForCurrentPhase`, `LeaveMatchUI`, `Can*`, and the `Phase.*` keys | Append values only. Update the announcer switch and add keys in en/ru/ja. |
+| RP1 | `GamePhase` enum | Sent as an int in a NetworkVariable. Used by `PlayerUI`, `GameAnnouncerUI` (its `switch` **throws** on unknown values), `HandleConfirmTurn` / `IsConfirmForCurrentPhase`, `LeaveMatchUI`, `Can*`, and the `Phase.*` keys | Append values only. Update the announcer switch and add keys in en/ru/ja. DrawCards is now assigned while dealing (F4). |
 | RP2 | `HandleConfirmTurn` multiplexing | One RPC means "confirm selection", "end turn" or "confirm respawn". N21 tags it with the intended phase and drops mismatches. | A confirm sent just before a phase change is dropped; the player presses again |
 | RP3 | `CardControllPackage` with 4 fixed targets | `MaxTargets = 4`; `CreateEmpty` makes 4 slots. The reader rejects counts outside 0–4 without reading targets; the server handler rejects null, empty or oversized lists. The loop requires slots ≥ activities, and `CardData.OnValidate` keeps exactly 4 activities. | Changing the activity count must also change `MaxTargets` and validation (N58 / GL5) |
 | RP4 | `SendCardDataClientRpc` → `RefreshAllSessions` / `OnCardDataReceived` | Every reveal rebuilds all world views; missing local views rebuild the hand | Data/list ordering, selection colours |
 | RP5 | `MultiplayerManager` ↔ `NetworkManager` recreation | Subscriptions must be redone for every new NetworkManager. Other classes subscribe on their own. | Host → leave → host again; join → leave → join |
-| RP6 | Disconnect and result chains | `HandleLostConnectionToHost`, `Disconnect`, `LeaveMatchToResultScene` and `CleanupAfterDisconnect` share flags and call `ClearupAfterDisconnect` / `ClearSessionOnDisconnect` around `Shutdown()` | Client leave, host leave, forfeit in each phase, connection loss, app quit |
+| RP6 | Disconnect and result chains | `HandleLostConnectionToHost`, `Disconnect`, `LeaveMatchToResultScene` and `CleanupAfterDisconnect` share flags and call `ClearupAfterDisconnect` / `ClearSessionOnDisconnect` around `Shutdown()`. N61 ignores only the host's own shutdown tail after cleanup; `ShouldShowConnectionLost` selects client lobby/match losses and excludes cancellations. | Client leave, host leave, forfeit in each phase, connection loss, app quit |
 | RP7 | `SessionManager.GetFreeSlot` → `TeamId` | Team is the slot index; the scene supports teams 0 and 1 only | Reconnect order, a third connection |
 | RP8 | Scene names and IDs | `SceneFlowManager` uses scene-name strings; areas and spawn points are matched by integer team ID | Renaming scenes, duplicating areas or spawn points |
 | RP9 | `ConfirmSendButton.cs` / class `ConfirmSendButtonUI1` | File and class names differ, and `PlayerUIPrefab` references the script. It works today (C6). | Renaming either breaks the cast button. Report, don't rename. |
 | RP10 | Nested NetworkObjects | `SpawnPoint.prefab` (NetworkObject) is a child of `BlockBody` (NetworkObject) | NGO nested-object warnings or spawn errors (U2) |
 | RP11 | Server authority (M4) | `GameMaster.Update` and `HandlePlayerControlPackage` require `IsServer`; lobby-host checks stay in `MultiplayerManager` | Host/client movement; a dedicated server is untested |
-| RP12 | NetworkVariable layout and RPC table | Adding or removing NetworkVariables or RPCs on a NetworkBehaviour changes what peers expect | Both peers on the same build (§2.2) |
+| RP12 | NetworkVariable layout and RPC table | Adding or removing NetworkVariables or RPCs on a NetworkBehaviour changes what peers expect | Both peers on the same build (§2.2); F1 adds MatchAbortedClientRpc and DeckRefilledClientRpc, F6 appends BlocksDestroyed |
 | RP13 | Lobby request rate | Lobby calls are rate-limited per player. `RefreshCurrentLobby` throttles `GetLobbyAsync` to one request at a time, 1.5 s apart (N30). | Any new `GetLobbyAsync` caller must go through `RefreshCurrentLobby` |
 | RP14 | Debug flags (L9) | Release builds rely on `DebugModeGuard.Allow` as the first statement in `Awake` | A new class with a `m_debugMode` flag must call it too |
 | RP15 | Change-only UI (L6 / N35) | `GameAnnouncerUI`, `PlayerUI` HP/lives/mana labels and `LobbyControlUI` skip work when their cached state is unchanged; health caches invalidate on locale, enable and local cleanup | A new displayed value or alive/dead state must be included in cache invalidation |
 | RP16 | Dynamic font asset (N28) | Any Editor run with new text changes the asset | Restore it before committing |
 | RP17 | Identifier typos (per `AGENTS.md`: report, don't rename) | `CardControllPackage`, `PlayerCardfWorldArea.cs`, `SetOponent` / `m_currentOponentNetworkObjectId`, `CheckActiveTaergetSelection`, `SingInAnonymous` / `SingOut` / `m_isSingingIn`, `HearthbeatLobby`, `MovePlayeToSpawnPoint`, `ClearupAfterDisconnect`, `DeffenceSpell`, `m_bootsTrap`, `_teamAssing`, `m_phaseAnouncementText`, `#region Valiable`, `ConfirmSendButtonUI1`, `m_startHandCards` (really the per-round draw count) | Any rename breaks serialized references, `nameof(HearthbeatLobby)` in `InvokeRepeating`, and the public API |
 | RP18 | World-space canvases on board objects (N54) | `PlayerSession.Update` treats any UI hit as a HUD click and skips its board raycast | Keep board canvases free of `GraphicRaycaster` components and raycast-target graphics; the screen-space HUD must still block clicks |
+| RP19 | Out-of-match notices (N59/F1) | PlayerNotice is a static store with a posting time and duration, not a consumed message | Scenes that display these notices need NoticeUI; keep its component active and toggle only the child Box |
+| RP20 | Timed phases (N36) | Loop completion and clients share the replicated deadline | StartPhaseCountdown at phase start; loop on PhaseTimeLeft; save remaining seconds across pauses |
+| RP21 | Menu low layouts (UI7) | Five menu canvases and both lobby item prefabs apply local low rectangles; LowText overrides fonts. Approved notice heights are 104 in both profiles; role width restores 150 low → 140 authored. | New elements need a low rectangle or must fit as authored; text that autosizes below 24 needs LowText |
 
 ---
 
@@ -285,7 +290,7 @@ Each item is a place where a change is likely to break another system. These are
 
 1. NGO behaviour with the nested `SpawnPoint` NetworkObject (RP10, U2). No warning in any log so far.
 2. The NGO `NetworkSceneManager.Dispose` NRE on Play Mode stop, Editor quit or domain reload (U9). It happens inside NGO during teardown and is probably harmless.
-3. The owner's manual checklist for N54–N58 and N32–N35 ([Issue Report #13](../Reports/2026-10-23_IssueReport-13.md) §5). The L1–N28 checks passed in the 2026-10-20 checklists (Issue Report #8).
+3. Real two-peer disconnect regression checks remain manual. N61's host-only fixture measured two LobbyScene loads before the guard and one after it; actual connected-client timing still needs the owner's check.
 
 ## History
 
