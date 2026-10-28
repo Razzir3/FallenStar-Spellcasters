@@ -1,7 +1,7 @@
 # Game Loop, Phases and Match State
 
-- **Updated:** 2026-10-24 (Codex's TASK-N59_N61_F1, TASK-F4_F6_N36 and TASK-UI7; header refresh in Issue Report #15). Full refresh: 2026-10-20 (TASK-N8). First audit: 2026-10-18. Each task since then updated the sections it touched.
-- **Code baseline:** commit `ff8a9dd` plus the uncommitted implementation of TASK-N59_N61_F1, TASK-F4_F6_N36 and TASK-UI7, reviewed in [Issue Report #15](../Reports/2026-10-24_IssueReport-15.md) §1. The owner's checklist for it is pending.
+- **Updated:** 2026-10-24 (Codex's TASK-N27 and TASK-F9_F14a_N62; header refresh and structure pass in Issue Report #16). Full refresh: 2026-10-20 (TASK-N8). First audit: 2026-10-18. Each task since then updated the sections it touched.
+- **Code baseline:** commit `5abd155`, reviewed in [Issue Report #16](../Reports/2026-10-24_IssueReport-16.md) §2. The owner's checklist #16 for N27 / F9 / F14a / N62 is pending.
 - **Method:** static code reading. Runtime evidence is named where it exists. Nothing here was run for this update.
 - Tags **[Confirmed] / [Unfinished] / [Unknown] / [Risk]** are defined in [Architecture.md](Architecture.md).
 - File and method names are given instead of line numbers.

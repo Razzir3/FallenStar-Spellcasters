@@ -1,8 +1,8 @@
 # FallenStar – Spellcasters: Architecture Overview
 
-- **Updated:** 2026-10-24 (Codex's TASK-N59_N61_F1, TASK-F4_F6_N36 and TASK-UI7; header refresh in Issue Report #15). Full refresh: 2026-10-20 (TASK-N8). First audit: 2026-10-18. Each task since then updated the sections it touched.
-- **Code baseline:** commit `ff8a9dd` (N54–N58, N32–N35) plus the uncommitted implementation of TASK-N59_N61_F1, TASK-F4_F6_N36 and TASK-UI7, reviewed in [Issue Report #15](../Reports/2026-10-24_IssueReport-15.md) §1. The owner's checklist for it (`ManualChecks/2026-10-24_ManualChecks-Report15.xlsx`) is pending.
-- **Method:** static reading of every C# file under `Assets/Scripts` (56 files, about 12.6k lines), plus YAML checks of scenes, prefabs, build settings and localization tables.
+- **Updated:** 2026-10-24 (Codex's TASK-N27 and TASK-F9_F14a_N62; header refresh and structure pass in Issue Report #16). Full refresh: 2026-10-20 (TASK-N8). First audit: 2026-10-18. Each task since then updated the sections it touched.
+- **Code baseline:** commit `5abd155` ("F9, F14a, N62, N27"), reviewed in [Issue Report #16](../Reports/2026-10-24_IssueReport-16.md) §2. TASK-N59_N61_F1, TASK-F4_F6_N36 and TASK-UI7 (`314498a`) passed the owner's checklist #15. The owner's checklist for N27 / F9 / F14a / N62 (`ManualChecks/2026-10-24_ManualChecks-Report16.xlsx`) is pending.
+- **Method:** static reading of every C# file under `Assets/Scripts` (60 files, about 13.0k lines), plus YAML checks of scenes, prefabs, build settings and localization tables. Report #16 §5 added a GUID scan of which asset folders the project's scenes, prefabs and materials use.
 - **Runtime evidence** (not re-run for this update):
   - The owner's two-Editor and player-build checklists up to 2026-10-22 (Issue Report #12 §1): matches as host and as client, the Settings scene, all three languages.
   - Codex's release build of the current working tree succeeded with 0 errors (report `2026-10-22_N32-N35_N54-N58_Implementation.md` §4).
@@ -66,14 +66,18 @@ Assets/Scripts/
 │   ├─ MatchResultData.cs        Static result handed to ResultScene
 │   ├─ ResultSceneController.cs  Debug log of the result
 │   ├─ SuspiciousActivityLog.cs  Server-only per-session log of rejected input
-│   ├─ LavaKillZone.cs, SpawnPoint.cs, PonyColorScript.cs
+│   ├─ LavaKillZone.cs, SpawnPoint.cs, PonyColorScript.cs, ManeColor.cs (N27 palette enum)
 │   └─ CardControllPackage.cs, PlayerControlPackage.cs, PlayerTurnSelection.cs, GameSlot.cs   data types
-└─ UI/                           Login, main menu, settings, lobby, HUD, announcer, leave, result
+└─ UI/                           Login, main menu, settings, lobby, HUD, announcer, leave, result;
+                                 NoticeUI/PlayerNotice (F1), HudTextBacking (F14a), ResolutionProfileLayout/UiResolutionProfile (UI6/UI7)
 ```
 
 Other folders:
 - `Assets/Card/`: `CardDataBase.asset` lists 4 cards (Fireball, Iceshard, HealingHooves, Clarity). `Data/CardData.asset` is a placeholder that isn't in the database.
 - `Assets/Localization/`: tables and locales.
+- `Assets/Models/`: `PonyBase.fbx` (body, static mesh, no rig) and `PonyMane.fbx` (N27, imported with Preserve Hierarchy). `Assets/Materials/`: the team materials `TestMaterial*.mat` and `Mane/` (five mane colours).
+- **Third-party packs** (all tracked in git): `Fantasy Wooden GUI  Free` (menu boards and buttons), `Stylized Lava Materials` (only `M_Lava03` is used), `SkyboxHandPainted`, `Background`, `Logo` are used by scenes. **Not referenced by any scene, prefab or material** (report #16 §5): `500FreeSkillIcons` (200 MB), `JMO Assets/Cartoon FX Remaster` (41 MB), `GabrielAguiarProductions/FreeQuickEffectsVol1` (40 MB), and the URP template's `TutorialInfo` + `Readme.asset`. Unreferenced assets don't enter player builds. The two effect packs are candidates for F19.
+- `Assets/ParrelSync-master/ParrelSync-master/ParrelSync/`: the Editor-only clone tool.
 - `Assets/Prefab/`: network and UI prefabs. Bootstrap and MultiplayerManager live on `AppRoot` in `LoginScene`; their unused legacy prefab copies were removed by N33.
 - `build/` (git-ignored): Codex's verification output (`build/task-*-verification/`).
 - The owner's player builds go to `../Spellcasters.Build/`.
@@ -302,7 +306,7 @@ These are the open structural risks. Each needs its own task before anything cha
 
 **Unknown, needing an Editor or Play Mode check:**
 - NGO behaviour with the nested SpawnPoint NetworkObject (A4, U2)
-- the NGO `NetworkSceneManager.Dispose` NRE on Play Mode stop (U9, inside NGO, during teardown)
+- the NGO `NetworkSceneManager.Dispose` NRE on Play Mode stop (U9, inside NGO, during teardown; reopened in report #16 after one more sighting in the clone)
 - Countdown stall checks (N36) measured the old loops about 0.67–0.68 s late after a 1 s stall. Deadline-based loops ended within one frame; see the 2026-10-24 implementation evidence under `build/oct24-verification/`.
 
 ---

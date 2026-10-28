@@ -1,7 +1,7 @@
 # Class Dependencies and Regression Points
 
-- **Updated:** 2026-10-24 (Codex's TASK-N59_N61_F1, TASK-F4_F6_N36 and TASK-UI7; header refresh in Issue Report #15). Full refresh: 2026-10-20 (TASK-N8). First audit: 2026-10-18. Each task since then updated the sections it touched.
-- **Code baseline:** commit `ff8a9dd` plus the uncommitted implementation of TASK-N59_N61_F1, TASK-F4_F6_N36 and TASK-UI7, reviewed in [Issue Report #15](../Reports/2026-10-24_IssueReport-15.md) §1. The owner's checklist for it is pending.
+- **Updated:** 2026-10-24 (Codex's TASK-N27 and TASK-F9_F14a_N62; header refresh and structure pass in Issue Report #16). Full refresh: 2026-10-20 (TASK-N8). First audit: 2026-10-18. Each task since then updated the sections it touched.
+- **Code baseline:** commit `5abd155`, reviewed in [Issue Report #16](../Reports/2026-10-24_IssueReport-16.md) §2. The owner's checklist #16 for N27 / F9 / F14a / N62 is pending.
 - **Method:** static reading. Every edge below was found as a real call, field access or event subscription in code, not inferred from names.
 - Tags are defined in [Architecture.md](Architecture.md).
 
@@ -252,7 +252,7 @@ Direct dependencies (`Packages/manifest.json`):
 - **Font asset:** `Assets/Fonts/MPLUSRounded1c-Medium SDF.asset` is a dynamic TMP font that every TMP text uses.
   - Its source font stays referenced, and "Clear Dynamic Data On Build" is on (N28).
   - Editor runs add glyphs to it. Per `AGENTS.md`, restore it before committing unless the task changes the font settings.
-- **ParrelSync** is under `Assets/ParrelSync`. The clone `C:/Lesson/FallenStar-Spellcasters_clone_1` shares `Assets` through a symlink, so it sees uncommitted changes immediately.
+- **ParrelSync** is under `Assets/ParrelSync-master/ParrelSync-master/ParrelSync/` (Editor-only assembly `projectCloner`). The clone `C:/Lesson/FallenStar-Spellcasters_clone_1` shares `Assets` through a symlink, so it sees uncommitted changes immediately.
 
 ---
 
